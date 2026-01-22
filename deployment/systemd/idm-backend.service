@@ -1,0 +1,23 @@
+[Unit]
+Description=IDM System Backend API
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=idm
+Group=idm
+WorkingDirectory=/opt/idm-system/backend
+Environment="PATH=/opt/idm-system/venv/bin"
+ExecStart=/opt/idm-system/venv/bin/gunicorn app.main:app \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8000 \
+    --access-logfile /var/log/idm/access.log \
+    --error-logfile /var/log/idm/error.log \
+    --log-level info
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
