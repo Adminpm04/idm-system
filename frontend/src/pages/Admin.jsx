@@ -4,6 +4,7 @@ import AdminUsers from './AdminUsers';
 import AdminRoles from './AdminRoles';
 import AdminPermissions from './AdminPermissions';
 import AdminAuditLogs from './AdminAuditLogs';
+import ExportButton from '../components/ExportButton';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('users');
@@ -18,9 +19,12 @@ export default function Admin() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-primary">Администрирование</h1>
-        <p className="text-gray-600 mt-2">Управление пользователями, ролями и правами доступа</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-primary">Администрирование</h1>
+          <p className="text-gray-600 mt-2">Управление пользователями, ролями и правами доступа</p>
+        </div>
+        <ExportButton isAdmin={true} />
       </div>
 
       <div className="border-b border-gray-200">

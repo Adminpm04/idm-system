@@ -154,3 +154,9 @@ export const approvalChainAPI = {
   create: (data) => api.post('/approval-chain', data),
   delete: (id) => api.delete('/approval-chain/' + id),
 };
+
+export const exportAPI = {
+  pdf: () => api.get('/export/pdf', { responseType: 'blob' }),
+  word: () => api.get('/export/word', { responseType: 'blob' }),
+  excel: () => api.get('/export/excel', { responseType: 'blob' }),
+};

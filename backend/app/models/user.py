@@ -32,7 +32,8 @@ class User(Base):
     department = Column(String(255), nullable=True)
     position = Column(String(255), nullable=True)
     manager_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
-    
+    auth_source = Column(String(20), default='local', nullable=False)  # 'local' or 'ldap'
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)

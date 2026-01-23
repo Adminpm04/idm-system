@@ -29,6 +29,17 @@ class Settings(BaseSettings):
     SMTP_PORT: Optional[int] = None
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+
+    # LDAP / Active Directory
+    LDAP_ENABLED: bool = True
+    LDAP_SERVER: str = "ldap://172.18.69.3:389"
+    LDAP_BASE_DN: str = "DC=corp,DC=orien,DC=tj"
+    LDAP_BIND_DN: str = "f.mamadziyoev@corp.orien.tj"
+    LDAP_BIND_PASSWORD: str = "Admin2244@"
+    LDAP_USER_SEARCH_BASE: Optional[str] = None  # If None, uses LDAP_BASE_DN
+    LDAP_USER_FILTER: str = "(sAMAccountName={username})"
+    LDAP_USE_SSL: bool = False
+    LDAP_TIMEOUT: int = 10
     
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20

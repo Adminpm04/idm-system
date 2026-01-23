@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.endpoints import auth, users, systems, requests, admin, subsystems, approval_chain
+from app.api.endpoints import auth, users, systems, requests, admin, subsystems, approval_chain, export
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -26,6 +26,7 @@ app.include_router(subsystems.router, prefix="/api", tags=["Subsystems"])
 app.include_router(approval_chain.router, prefix="/api", tags=["Approval Chain"])
 app.include_router(requests.router, prefix="/api/requests", tags=["Requests"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(export.router, prefix="/api/export", tags=["Export"])
 
 
 @app.get("/")

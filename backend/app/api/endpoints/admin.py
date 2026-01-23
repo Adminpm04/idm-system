@@ -105,5 +105,20 @@ async def get_audit_logs(
     ).order_by(
         AuditLog.created_at.desc()
     ).offset(skip).limit(limit).all()
-    
+
     return logs
+
+
+@router.get("/ldap/test")
+async def test_ldap_connection(
+    current_user: User = Depends(get_current_superuser)
+):
+    """Test LDAP/AD connection"""
+    from app.core.ldap_auth import ldap_service
+    from app.core.config import settings
+
+    if not settings.LDAP_ENABLED:
+        return {"success": False, "message": "LDAP is not enabled"}
+
+    result = ldap_service.test_connection()
+    return result
