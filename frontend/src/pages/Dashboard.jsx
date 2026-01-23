@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { requestsAPI } from '../services/api';
+import { PlusIcon, RequestIcon, PendingIcon, SystemIcon, CheckIcon } from '../components/Icons';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -27,23 +28,35 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Link to="/requests/create" className="card hover:shadow-lg transition-shadow cursor-pointer">
-          <h3 className="text-lg font-semibold mb-2">Новая заявка</h3>
+        <Link to="/requests/create" className="card hover:shadow-lg transition-shadow cursor-pointer group">
+          <div className="flex items-center mb-3">
+            <PlusIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
+            <h3 className="text-lg font-semibold">Новая заявка</h3>
+          </div>
           <p className="text-gray-600 text-sm">Запросить доступ к системе</p>
         </Link>
 
-        <Link to="/requests/my" className="card hover:shadow-lg transition-shadow cursor-pointer">
-          <h3 className="text-lg font-semibold mb-2">Мои заявки</h3>
+        <Link to="/requests/my" className="card hover:shadow-lg transition-shadow cursor-pointer group">
+          <div className="flex items-center mb-3">
+            <RequestIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
+            <h3 className="text-lg font-semibold">Мои заявки</h3>
+          </div>
           <p className="text-gray-600 text-sm">Просмотр статусов заявок</p>
         </Link>
 
-        <Link to="/requests/approvals" className="card hover:shadow-lg transition-shadow cursor-pointer">
-          <h3 className="text-lg font-semibold mb-2">На согласовании</h3>
+        <Link to="/requests/approvals" className="card hover:shadow-lg transition-shadow cursor-pointer group">
+          <div className="flex items-center mb-3">
+            <PendingIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
+            <h3 className="text-lg font-semibold">На согласовании</h3>
+          </div>
           <p className="text-gray-600 text-sm">Заявки, ожидающие утверждения</p>
         </Link>
 
-        <Link to="/systems" className="card hover:shadow-lg transition-shadow cursor-pointer">
-          <h3 className="text-lg font-semibold mb-2">Системы</h3>
+        <Link to="/systems" className="card hover:shadow-lg transition-shadow cursor-pointer group">
+          <div className="flex items-center mb-3">
+            <SystemIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
+            <h3 className="text-lg font-semibold">Системы</h3>
+          </div>
           <p className="text-gray-600 text-sm">Доступные системы</p>
         </Link>
       </div>
@@ -51,37 +64,37 @@ export default function Dashboard() {
       {/* Features */}
       <div className="card">
         <h2 className="text-xl font-semibold mb-4">Добро пожаловать в IDM System</h2>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-start">
-            <span className="text-secondary mr-3">✓</span>
+            <CheckIcon size={24} className="mr-3 flex-shrink-0" />
             <div>
               <strong>Полная прозрачность процесса согласования</strong>
               <p className="text-sm text-gray-600">Отслеживайте статус каждой заявки в режиме реального времени</p>
             </div>
           </div>
           <div className="flex items-start">
-            <span className="text-secondary mr-3">✓</span>
+            <CheckIcon size={24} className="mr-3 flex-shrink-0" />
             <div>
               <strong>Автоматическая маршрутизация заявок</strong>
               <p className="text-sm text-gray-600">Заявки автоматически направляются ответственным лицам</p>
             </div>
           </div>
           <div className="flex items-start">
-            <span className="text-secondary mr-3">✓</span>
+            <CheckIcon size={24} className="mr-3 flex-shrink-0" />
             <div>
               <strong>Аудит всех действий и решений</strong>
               <p className="text-sm text-gray-600">Полная история изменений и действий пользователей</p>
             </div>
           </div>
           <div className="flex items-start">
-            <span className="text-secondary mr-3">✓</span>
+            <CheckIcon size={24} className="mr-3 flex-shrink-0" />
             <div>
               <strong>Временные доступы с авто-отзывом</strong>
               <p className="text-sm text-gray-600">Настройка временных доступов с автоматическим истечением срока</p>
             </div>
           </div>
           <div className="flex items-start">
-            <span className="text-secondary mr-3">✓</span>
+            <CheckIcon size={24} className="mr-3 flex-shrink-0" />
             <div>
               <strong>Периодическое переутверждение доступов</strong>
               <p className="text-sm text-gray-600">Регулярная проверка актуальности предоставленных доступов</p>

@@ -10,6 +10,8 @@ import DashboardPage from './pages/Dashboard';
 import SystemsPage from './pages/Systems';
 import RequestDetailPage from './pages/RequestDetail';
 import MyApprovalsPage from './pages/MyApprovals';
+import GlobalSearch from './components/GlobalSearch';
+import { HomeIcon, RequestIcon, PendingIcon, SystemIcon, AdminIcon, PlusIcon, CheckIcon } from './components/Icons';
 
 // Auth Context
 const AuthContext = React.createContext(null);
@@ -217,8 +219,13 @@ function Layout({ children }) {
               </nav>
             </div>
 
+            {/* Global Search */}
+            <div className="hidden lg:flex flex-1 justify-center max-w-md mx-4">
+              <GlobalSearch />
+            </div>
+
             <div className="flex items-center space-x-4">
-              <span className="text-sm">{user?.full_name}</span>
+              <span className="text-sm hidden md:inline">{user?.full_name}</span>
               <button onClick={logout} className="btn btn-secondary text-sm">
                 Выход
               </button>
@@ -243,23 +250,35 @@ function Dashboard() {
         <h1 className="text-3xl font-bold text-primary">Панель управления</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link to="/create-request" className="card hover:shadow-lg transition-shadow">
-            <h3 className="text-xl font-semibold mb-2">Новая заявка</h3>
+          <Link to="/create-request" className="card hover:shadow-lg transition-shadow group">
+            <div className="flex items-center mb-3">
+              <PlusIcon size={32} className="mr-3 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold">Новая заявка</h3>
+            </div>
             <p className="text-gray-600">Запросить доступ к системе</p>
           </Link>
 
-          <Link to="/my-requests" className="card hover:shadow-lg transition-shadow">
-            <h3 className="text-xl font-semibold mb-2">Мои заявки</h3>
+          <Link to="/my-requests" className="card hover:shadow-lg transition-shadow group">
+            <div className="flex items-center mb-3">
+              <RequestIcon size={32} className="mr-3 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold">Мои заявки</h3>
+            </div>
             <p className="text-gray-600">Просмотр статусов заявок</p>
           </Link>
 
-          <Link to="/my-approvals" className="card hover:shadow-lg transition-shadow">
-            <h3 className="text-xl font-semibold mb-2">На согласовании</h3>
+          <Link to="/my-approvals" className="card hover:shadow-lg transition-shadow group">
+            <div className="flex items-center mb-3">
+              <PendingIcon size={32} className="mr-3 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold">На согласовании</h3>
+            </div>
             <p className="text-gray-600">Заявки, ожидающие утверждения</p>
           </Link>
 
-          <Link to="/systems" className="card hover:shadow-lg transition-shadow">
-            <h3 className="text-xl font-semibold mb-2">Системы</h3>
+          <Link to="/systems" className="card hover:shadow-lg transition-shadow group">
+            <div className="flex items-center mb-3">
+              <SystemIcon size={32} className="mr-3 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold">Системы</h3>
+            </div>
             <p className="text-gray-600">Доступные системы</p>
           </Link>
         </div>
@@ -270,12 +289,12 @@ function Dashboard() {
             Система управления доступами предназначена для централизованного запроса,
             согласования и предоставления доступов к корпоративным системам.
           </p>
-          <ul className="list-disc list-inside space-y-2 text-gray-700">
-            <li>Полная прозрачность процесса согласования</li>
-            <li>Автоматическая маршрутизация заявок</li>
-            <li>Аудит всех действий и решений</li>
-            <li>Временные доступы с авто-отзывом</li>
-            <li>Периодическое переутверждение доступов</li>
+          <ul className="space-y-3 text-gray-700">
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Полная прозрачность процесса согласования</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Автоматическая маршрутизация заявок</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Аудит всех действий и решений</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Временные доступы с авто-отзывом</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Периодическое переутверждение доступов</li>
           </ul>
         </div>
       </div>

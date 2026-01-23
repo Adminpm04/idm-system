@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { requestsAPI } from '../services/api';
+import { PendingIcon, ArrowBackIcon } from '../components/Icons';
 
 function MyApprovalsPage() {
   const [requests, setRequests] = useState([]);
@@ -109,8 +110,8 @@ function MyApprovalsPage() {
                       <h3 className="text-lg font-semibold text-primary">
                         {request.request_number}
                       </h3>
-                      <span className="badge badge-in-review">
-                        ⏳ Ожидает вашего согласования
+                      <span className="badge badge-in-review flex items-center">
+                        <PendingIcon size={16} className="mr-1" /> Ожидает вашего согласования
                       </span>
                     </div>
                     
@@ -156,8 +157,8 @@ function MyApprovalsPage() {
                 </div>
 
                 <div className="mt-4 flex justify-end space-x-2">
-                  <span className="btn btn-primary btn-sm">
-                    Перейти к согласованию →
+                  <span className="btn btn-primary btn-sm flex items-center">
+                    Перейти к согласованию <span className="ml-1 text-lg">→</span>
                   </span>
                 </div>
               </Link>

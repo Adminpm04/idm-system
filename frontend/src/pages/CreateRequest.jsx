@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import { systemsAPI, subsystemsAPI, usersAPI, requestsAPI } from '../services/api';
+import { CheckIcon, InfoIcon } from '../components/Icons';
 
 function CreateRequestPage() {
   const navigate = useNavigate();
@@ -189,8 +190,8 @@ function CreateRequestPage() {
 
       <div className="card">
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-            ✓ Заявка успешно создана! Перенаправление...
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
+            <CheckIcon size={20} className="mr-2" /> Заявка успешно создана! Перенаправление...
           </div>
         )}
 
@@ -419,12 +420,14 @@ function CreateRequestPage() {
 
       {/* Информация */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">ℹ️ Что дальше?</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• После создания заявка будет в статусе "Черновик"</li>
-          <li>• Вы сможете отредактировать её перед отправкой</li>
-          <li>• После отправки заявка пойдёт на согласование</li>
-          <li>• Вы увидите всех согласующих и текущий статус</li>
+        <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
+          <InfoIcon size={20} className="mr-2" /> Что дальше?
+        </h3>
+        <ul className="text-sm text-blue-800 space-y-2">
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> После создания заявка будет в статусе "Черновик"</li>
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> Вы сможете отредактировать её перед отправкой</li>
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> После отправки заявка пойдёт на согласование</li>
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> Вы увидите всех согласующих и текущий статус</li>
         </ul>
       </div>
     </div>

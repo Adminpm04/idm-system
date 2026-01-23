@@ -50,6 +50,35 @@ async def create_role(
     return role
 
 
+@router.delete("/roles/{role_id}")
+async def delete_role(
+    role_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Delete a role"""
+    role = db.query(Role).filter(Role.id == role_id).first()
+
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
+
+    # Check if role is assigned to any users
+    users_with_role = db.query(User).filter(User.roles.any(Role.id == role_id)).count()
+    if users_with_role > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete role. It is assigned to {users_with_role} user(s). Remove role from users first."
+        )
+
+    db.delete(role)
+    db.commit()
+
+    return {"message": "Role deleted successfully"}
+
+
 @router.get("/permissions", response_model=List[PermissionResponse])
 async def list_permissions(
     db: Session = Depends(get_db),

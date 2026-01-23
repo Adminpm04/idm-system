@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usersAPI, adminAPI } from '../services/api';
+import { UserIcon, PlusIcon } from '../components/Icons';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -43,14 +44,14 @@ export default function AdminUsers() {
           <h1 className="text-3xl font-bold text-primary">Управление пользователями</h1>
           <p className="text-gray-600 mt-2">Добавление и редактирование пользователей</p>
         </div>
-        <button 
+        <button
           onClick={() => {
             setEditingUser(null);
             setShowModal(true);
           }}
-          className="btn btn-primary"
+          className="btn btn-primary flex items-center"
         >
-          Добавить пользователя
+          <PlusIcon size={18} className="mr-2" /> Добавить пользователя
         </button>
       </div>
 

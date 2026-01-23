@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { systemsAPI } from '../services/api';
+import { LinkIcon, SystemIcon } from '../components/Icons';
 
 export default function Systems() {
   const [systems, setSystems] = useState([]);
@@ -39,13 +40,16 @@ export default function Systems() {
             className="card hover:shadow-lg transition-shadow"
           >
             <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-primary">
-                  {system.name}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {system.code}
-                </p>
+              <div className="flex items-center">
+                <SystemIcon size={32} className="mr-3" />
+                <div>
+                  <h3 className="text-lg font-semibold text-primary">
+                    {system.name}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {system.code}
+                  </p>
+                </div>
               </div>
 
               {system.is_active ? (
@@ -66,7 +70,7 @@ export default function Systems() {
                 rel="noopener noreferrer"
                 className="text-primary hover:underline text-sm flex items-center"
               >
-                <span className="mr-1">🔗</span>
+                <LinkIcon size={18} className="mr-2" />
                 Открыть систему
               </a>
             )}

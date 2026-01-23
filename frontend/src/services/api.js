@@ -122,12 +122,15 @@ export const requestsAPI = {
   approve: (id, data) => api.post('/requests/' + id + '/approve', data),
   addComment: (id, data) => api.post('/requests/' + id + '/comments', data),
   statistics: () => api.get('/requests/statistics'),
+  searchSuggestions: (q) => api.get('/requests/search/suggestions', { params: { q } }),
+  globalSearch: (params) => api.get('/requests/search/global', { params }),
 };
 
 export const adminAPI = {
   roles: {
     list: () => api.get('/admin/roles'),
     create: (data) => api.post('/admin/roles', data),
+    delete: (id) => api.delete('/admin/roles/' + id),
   },
   permissions: {
     list: () => api.get('/admin/permissions'),

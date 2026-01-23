@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../services/api';
+import { CrossIcon, WarningIcon, PlusIcon, RoleIcon } from '../components/Icons';
 
 export default function AdminRoles() {
   const [roles, setRoles] = useState([]);
@@ -7,6 +8,9 @@ export default function AdminRoles() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     loadRoles();
@@ -35,6 +39,25 @@ export default function AdminRoles() {
     }
   };
 
+  const handleDeleteClick = (role) => {
+    setRoleToDelete(role);
+    setDeleteError('');
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!roleToDelete) return;
+
+    try {
+      await adminAPI.roles.delete(roleToDelete.id);
+      setShowDeleteConfirm(false);
+      setRoleToDelete(null);
+      loadRoles();
+    } catch (error) {
+      setDeleteError(error.response?.data?.detail || 'Ошибка удаления роли');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -42,14 +65,14 @@ export default function AdminRoles() {
           <h1 className="text-3xl font-bold text-primary">Управление ролями</h1>
           <p className="text-gray-600 mt-2">Роли и права доступа в системе</p>
         </div>
-        <button 
+        <button
           onClick={() => {
             setEditingRole(null);
             setShowModal(true);
           }}
-          className="btn btn-primary"
+          className="btn btn-primary flex items-center"
         >
-          Добавить роль
+          <PlusIcon size={18} className="mr-2" /> Добавить роль
         </button>
       </div>
 
@@ -60,9 +83,12 @@ export default function AdminRoles() {
           {roles.map((role) => (
             <div key={role.id} className="card hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-xl font-bold text-primary">{role.name}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{role.description}</p>
+                <div className="flex items-center">
+                  <RoleIcon size={28} className="mr-3" />
+                  <div>
+                    <h3 className="text-xl font-bold text-primary">{role.name}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{role.description}</p>
+                  </div>
                 </div>
               </div>
 
@@ -84,8 +110,8 @@ export default function AdminRoles() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t flex justify-end space-x-2">
-                <button 
+              <div className="mt-4 pt-4 border-t flex justify-end space-x-3">
+                <button
                   onClick={() => {
                     setEditingRole(role);
                     setShowModal(true);
@@ -93,6 +119,12 @@ export default function AdminRoles() {
                   className="text-primary hover:text-primary/80 text-sm"
                 >
                   Изменить
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(role)}
+                  className="text-red-600 hover:text-red-800 text-sm"
+                >
+                  Удалить
                 </button>
               </div>
             </div>
@@ -114,6 +146,51 @@ export default function AdminRoles() {
             loadRoles();
           }}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && roleToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <WarningIcon size={32} className="mr-3" />
+              <h2 className="text-xl font-bold text-gray-900">Удаление роли</h2>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Вы уверены, что хотите удалить роль <strong>"{roleToDelete.name}"</strong>?
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Это действие нельзя отменить. Роль будет удалена вместе со всеми её правами доступа.
+            </p>
+
+            {deleteError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
+                <CrossIcon size={20} className="mr-2 flex-shrink-0 mt-0.5" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setRoleToDelete(null);
+                  setDeleteError('');
+                }}
+                className="btn btn-secondary"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="btn bg-red-600 text-white hover:bg-red-700"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

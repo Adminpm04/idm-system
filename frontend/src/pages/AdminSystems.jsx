@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { systemsAPI, subsystemsAPI, approvalChainAPI, usersAPI } from '../services/api';
+import { InfoIcon, SystemIcon, SubsystemIcon, PlusIcon } from '../components/Icons';
 
 export default function AdminSystems() {
   const [systems, setSystems] = useState([]);
@@ -46,14 +47,14 @@ export default function AdminSystems() {
           <h1 className="text-3xl font-bold text-primary">Управление системами</h1>
           <p className="text-gray-600 mt-2">Добавление и редактирование систем и подсистем</p>
         </div>
-        <button 
+        <button
           onClick={() => {
             setEditingSystem(null);
             setShowModal(true);
           }}
-          className="btn btn-primary"
+          className="btn btn-primary flex items-center"
         >
-          Добавить систему
+          <PlusIcon size={18} className="mr-2" /> Добавить систему
         </button>
       </div>
 
@@ -538,8 +539,8 @@ function ApprovalChainModal({ system, onClose }) {
         </div>
 
         <div className="mb-6 bg-blue-50 border border-blue-200 rounded p-3">
-          <p className="text-sm text-blue-800">
-            💡 Заявки на доступ к этой системе будут проходить согласование в указанном порядке
+          <p className="text-sm text-blue-800 flex items-center">
+            <InfoIcon size={18} className="mr-2 flex-shrink-0" /> Заявки на доступ к этой системе будут проходить согласование в указанном порядке
           </p>
         </div>
 

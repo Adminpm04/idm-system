@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { requestsAPI } from '../services/api';
 import { useAuth } from '../App';
 import { format } from 'date-fns';
+import { CheckIcon, CrossIcon, PendingIcon, NeutralIcon, ClockIcon, WarningIcon, ArrowBackIcon } from '../components/Icons';
 
 function RequestDetailPage() {
   const { id } = useParams();
@@ -139,10 +140,10 @@ function RequestDetailPage() {
 
   const getApprovalStatusIcon = (status) => {
     switch (status) {
-      case 'approved': return '✅';
-      case 'rejected': return '❌';
-      case 'pending': return '⏳';
-      default: return '⚪';
+      case 'approved': return <CheckIcon size={20} className="inline" />;
+      case 'rejected': return <CrossIcon size={20} className="inline" />;
+      case 'pending': return <PendingIcon size={20} className="inline" />;
+      default: return <NeutralIcon size={20} className="inline" />;
     }
   };
 
@@ -176,9 +177,9 @@ function RequestDetailPage() {
       <div className="mb-6">
         <button
           onClick={() => navigate('/my-requests')}
-          className="text-primary hover:underline mb-4"
+          className="text-primary hover:underline mb-4 flex items-center"
         >
-          ← Назад к списку
+          <ArrowBackIcon size={20} className="mr-2" /> Назад к списку
         </button>
         
         <div className="flex items-center justify-between">
@@ -240,7 +241,9 @@ function RequestDetailPage() {
 
               {request.is_temporary && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-sm font-medium text-orange-800">⏱ Временный доступ</p>
+                  <p className="text-sm font-medium text-orange-800 flex items-center">
+                    <ClockIcon size={18} className="mr-2" /> Временный доступ
+                  </p>
                   <p className="text-sm text-orange-700 mt-1">
                     {request.valid_from && `С ${formatDate(request.valid_from)} `}
                     До {formatDate(request.valid_until)}
@@ -376,23 +379,23 @@ function RequestDetailPage() {
 
           {canApprove && (
             <div className="card bg-yellow-50 border-yellow-200">
-              <h3 className="font-semibold mb-3 text-yellow-900">
-                ⚠️ Требуется ваше согласование
+              <h3 className="font-semibold mb-3 text-yellow-900 flex items-center">
+                <WarningIcon size={22} className="mr-2" /> Требуется ваше согласование
               </h3>
               <div className="space-y-2">
                 <button
                   onClick={handleApprove}
                   disabled={actionLoading}
-                  className="btn btn-primary w-full"
+                  className="btn btn-primary w-full flex items-center justify-center"
                 >
-                  ✅ Согласовать
+                  <CheckIcon size={18} className="mr-2" /> Согласовать
                 </button>
                 <button
                   onClick={handleReject}
                   disabled={actionLoading}
-                  className="btn bg-red-600 text-white hover:bg-red-700 w-full"
+                  className="btn bg-red-600 text-white hover:bg-red-700 w-full flex items-center justify-center"
                 >
-                  ❌ Отклонить
+                  <CrossIcon size={18} className="mr-2" /> Отклонить
                 </button>
               </div>
             </div>
