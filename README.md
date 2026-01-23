@@ -139,7 +139,7 @@ from app.core.security import get_password_hash
 
 db = SessionLocal()
 user = User(
-    email='admin@tcell.tj',
+    email='admin@oriyonbonk.tj',
     username='admin',
     full_name='System Administrator',
     hashed_password=get_password_hash('admin123'),
@@ -183,7 +183,7 @@ sudo nano /etc/nginx/conf.d/idm.conf
 ```nginx
 server {
     listen 80;
-    server_name idm.tcell.tj;
+    server_name idm.oriyonbonk.tj;
 
     # Frontend
     location / {
@@ -268,12 +268,12 @@ sudo firewall-cmd --reload
 
 ```bash
 sudo dnf install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d idm.tcell.tj
+sudo certbot --nginx -d idm.oriyonbonk.tj
 ```
 
 ## Первый запуск
 
-1. Откройте http://idm.tcell.tj
+1. Откройте http://idm.oriyonbonk.tj
 2. Войдите с учетными данными:
    - Username: `admin`
    - Password: `admin123`
@@ -404,7 +404,3 @@ sudo -u postgres psql idm_db < idm_backup_20250116.sql
 ## Поддержка
 
 Для вопросов и проблем обращайтесь к системному администратору.
-
-## Лицензия
-
-Internal use only - Tcell
