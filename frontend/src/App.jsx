@@ -11,6 +11,7 @@ import SystemsPage from './pages/Systems';
 import RequestDetailPage from './pages/RequestDetail';
 import MyApprovalsPage from './pages/MyApprovals';
 import GlobalSearch from './components/GlobalSearch';
+import MemoryGame from './components/MemoryGame';
 import { HomeIcon, RequestIcon, PendingIcon, SystemIcon, AdminIcon, PlusIcon, CheckIcon } from './components/Icons';
 
 // Auth Context
@@ -227,6 +228,7 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showGame, setShowGame] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -256,12 +258,16 @@ function LoginPage() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-2xl mb-4 shadow-lg animate-bounce-slow relative overflow-hidden group">
+            <button
+              onClick={() => setShowGame(true)}
+              className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-2xl mb-4 shadow-lg animate-bounce-slow relative overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow"
+              title="Нажми для сюрприза!"
+            >
               <div className="absolute inset-0 bg-secondary/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <svg className="w-10 h-10 text-secondary relative z-10 transform group-hover:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L4 6v6c0 5.25 3.4 10.2 8 12 4.6-1.8 8-6.75 8-12V6l-8-4zm0 4a3 3 0 110 6 3 3 0 010-6zm0 14c-2.5 0-4.7-1.3-6-3.2.03-2 4-3.1 6-3.1s5.97 1.1 6 3.1c-1.3 1.9-3.5 3.2-6 3.2z"/>
               </svg>
-            </div>
+            </button>
             <h1 className="text-3xl font-bold text-primary mb-2">IDM <span className="text-secondary">System</span></h1>
             <p className="text-gray-500">Система управления доступами</p>
             <style>{`
@@ -272,6 +278,9 @@ function LoginPage() {
               .animate-bounce-slow { animation: bounce-slow 3s ease-in-out infinite; }
             `}</style>
           </div>
+
+          {/* Memory Game Modal */}
+          {showGame && <MemoryGame onClose={() => setShowGame(false)} />}
 
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <form onSubmit={handleSubmit} className="space-y-5">
