@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { requestsAPI } from '../services/api';
-import { PlusIcon, RequestIcon, PendingIcon, SystemIcon, CheckIcon } from '../components/Icons';
+import { CheckIcon } from '../components/Icons';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -26,37 +26,25 @@ export default function Dashboard() {
         <p className="text-gray-600 mt-2">Система управления доступами предназначена для централизованного запроса, согласования и предоставления доступов к корпоративным системам.</p>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - без иконок */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Link to="/requests/create" className="card hover:shadow-lg transition-shadow cursor-pointer group">
-          <div className="flex items-center mb-3">
-            <PlusIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold">Новая заявка</h3>
-          </div>
+        <Link to="/create-request" className="card hover:shadow-lg transition-shadow">
+          <h3 className="text-lg font-semibold mb-2">Новая заявка</h3>
           <p className="text-gray-600 text-sm">Запросить доступ к системе</p>
         </Link>
 
-        <Link to="/requests/my" className="card hover:shadow-lg transition-shadow cursor-pointer group">
-          <div className="flex items-center mb-3">
-            <RequestIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold">Мои заявки</h3>
-          </div>
+        <Link to="/my-requests" className="card hover:shadow-lg transition-shadow">
+          <h3 className="text-lg font-semibold mb-2">Мои заявки</h3>
           <p className="text-gray-600 text-sm">Просмотр статусов заявок</p>
         </Link>
 
-        <Link to="/requests/approvals" className="card hover:shadow-lg transition-shadow cursor-pointer group">
-          <div className="flex items-center mb-3">
-            <PendingIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold">На согласовании</h3>
-          </div>
+        <Link to="/my-approvals" className="card hover:shadow-lg transition-shadow">
+          <h3 className="text-lg font-semibold mb-2">На согласовании</h3>
           <p className="text-gray-600 text-sm">Заявки, ожидающие утверждения</p>
         </Link>
 
-        <Link to="/systems" className="card hover:shadow-lg transition-shadow cursor-pointer group">
-          <div className="flex items-center mb-3">
-            <SystemIcon size={28} className="mr-3 group-hover:scale-110 transition-transform" />
-            <h3 className="text-lg font-semibold">Системы</h3>
-          </div>
+        <Link to="/systems" className="card hover:shadow-lg transition-shadow">
+          <h3 className="text-lg font-semibold mb-2">Системы</h3>
           <p className="text-gray-600 text-sm">Доступные системы</p>
         </Link>
       </div>

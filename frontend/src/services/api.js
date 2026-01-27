@@ -6,6 +6,8 @@ const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
   },
 });
 
@@ -159,4 +161,21 @@ export const exportAPI = {
   pdf: () => api.get('/export/pdf', { responseType: 'blob' }),
   word: () => api.get('/export/word', { responseType: 'blob' }),
   excel: () => api.get('/export/excel', { responseType: 'blob' }),
+};
+
+export const dashboardCardsAPI = {
+  list: () => api.get('/dashboard-cards'),
+  listAll: () => api.get('/dashboard-cards/all'),
+  get: (id) => api.get('/dashboard-cards/' + id),
+  create: (data) => api.post('/dashboard-cards', data),
+  update: (id, data) => api.put('/dashboard-cards/' + id, data),
+  delete: (id) => api.delete('/dashboard-cards/' + id),
+  uploadIcon: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/dashboard-cards/upload-icon', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  reorder: (order) => api.post('/dashboard-cards/reorder', order),
 };
