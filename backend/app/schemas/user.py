@@ -37,9 +37,11 @@ class UserInDB(UserBase):
     id: int
     is_active: bool
     is_superuser: bool
+    is_demo: bool = False
     created_at: datetime
     last_login: Optional[datetime] = None
-    
+    auth_source: Optional[str] = None
+
     class Config:
         from_attributes = True
 

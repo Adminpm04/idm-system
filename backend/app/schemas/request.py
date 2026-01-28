@@ -134,9 +134,26 @@ class AccessRequestResponse(BaseModel):
         from_attributes = True
 
 
+class AttachmentResponseBasic(BaseModel):
+    """Basic attachment info for detail response"""
+    id: int
+    filename: str
+    file_size: int
+    content_type: str
+    description: Optional[str] = None
+    attachment_type: Optional[str] = None
+    uploaded_by_id: Optional[int] = None
+    uploaded_by_name: Optional[str] = None
+    uploaded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class AccessRequestDetailResponse(AccessRequestResponse):
     approvals: List[ApprovalResponse] = []
     comments: List[RequestCommentResponse] = []
+    attachments: List[AttachmentResponseBasic] = []
 
 
 # List/Filter Schemas
@@ -166,3 +183,54 @@ class MyRequestsSummary(BaseModel):
     pending: int
     approved: int
     rejected: int
+
+
+# Bulk Request Schemas
+class BulkRequestCreate(BaseModel):
+    """Input data for creating multiple requests at once"""
+    user_ids: List[int] = Field(..., min_length=1, max_length=20)
+    system_id: int
+    subsystem_id: Optional[int] = None
+    access_role_id: int
+    request_type: RequestType
+    purpose: str = Field(..., min_length=10)
+    is_temporary: bool = False
+    valid_from: Optional[date] = None
+    valid_until: Optional[date] = None
+
+
+class BulkRequestResponse(BaseModel):
+    """Response for bulk request creation"""
+    total: int
+    created: int
+    skipped: List[dict] = []
+    request_ids: List[int]
+
+
+# Attachment Schemas
+class AttachmentResponse(BaseModel):
+    """Response schema for file attachment"""
+    id: int
+    request_id: int
+    filename: str
+    file_size: int
+    content_type: str
+    description: Optional[str] = None
+    attachment_type: Optional[str] = None
+    uploaded_by_id: Optional[int] = None
+    uploaded_by_name: Optional[str] = None
+    uploaded_at: datetime
+    download_count: int
+    last_downloaded_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AttachmentUploadResponse(BaseModel):
+    """Response after successful upload"""
+    id: int
+    filename: str
+    file_size: int
+    content_type: str
+    message: str

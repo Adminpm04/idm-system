@@ -1,9 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { requestsAPI } from '../services/api';
 import { useAuth, useLanguage } from '../App';
 import { format } from 'date-fns';
 import { CheckIcon, CrossIcon, PendingIcon, NeutralIcon, ClockIcon, WarningIcon, ArrowBackIcon } from '../components/Icons';
+
+// File attachment icon component
+const FileIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+  </svg>
+);
+
+const UploadIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="17 8 12 3 7 8"></polyline>
+    <line x1="12" y1="3" x2="12" y2="15"></line>
+  </svg>
+);
+
+const DownloadIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" y1="15" x2="12" y2="3"></line>
+  </svg>
+);
+
+const TrashIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="3 6 5 6 21 6"></polyline>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+  </svg>
+);
 
 function RequestDetailPage() {
   const { id } = useParams();
@@ -18,6 +49,12 @@ function RequestDetailPage() {
   // Comment form
   const [comment, setComment] = useState('');
   const [addingComment, setAddingComment] = useState(false);
+
+  // Attachments
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileDescription, setFileDescription] = useState('');
+  const [attachmentType, setAttachmentType] = useState('');
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadRequest();
@@ -102,6 +139,64 @@ function RequestDetailPage() {
     } finally {
       setAddingComment(false);
     }
+  };
+
+  // Attachment handlers
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert(t('fileTooLarge'));
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      await requestsAPI.uploadAttachment(id, file, fileDescription, attachmentType);
+      setFileDescription('');
+      setAttachmentType('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await loadRequest();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error uploading file');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleDownload = async (attachmentId, filename) => {
+    try {
+      const response = await requestsAPI.downloadAttachment(id, attachmentId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error downloading file');
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId, filename) => {
+    if (!window.confirm(`${t('deleteAttachment')} "${filename}"?`)) return;
+
+    try {
+      await requestsAPI.deleteAttachment(id, attachmentId);
+      await loadRequest();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error deleting attachment');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const formatDate = (dateString) => {
@@ -359,6 +454,109 @@ function RequestDetailPage() {
                 {addingComment ? t('addingComment') : t('addComment')}
               </button>
             </form>
+          </div>
+
+          {/* Attachments */}
+          <div className="card">
+            <h2 className="text-xl font-semibold mb-4 dark:text-gray-100 flex items-center">
+              <FileIcon size={22} className="mr-2" />
+              {t('attachments')}
+            </h2>
+
+            {/* Attachment list */}
+            {request.attachments && request.attachments.length > 0 ? (
+              <div className="space-y-3 mb-4">
+                {request.attachments.map(attachment => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-lg p-3"
+                  >
+                    <div className="flex items-center flex-1 min-w-0">
+                      <FileIcon size={20} className="text-gray-500 dark:text-gray-400 mr-3 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm dark:text-gray-100 truncate">{attachment.filename}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatFileSize(attachment.file_size)} | {attachment.uploaded_by_name} | {formatDate(attachment.uploaded_at)}
+                        </p>
+                        {attachment.description && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 italic">{attachment.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 ml-2">
+                      <button
+                        onClick={() => handleDownload(attachment.id, attachment.filename)}
+                        className="p-2 text-primary hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        title={t('download')}
+                      >
+                        <DownloadIcon size={18} />
+                      </button>
+                      {(attachment.uploaded_by_id === user?.id || user?.is_superuser) && (
+                        <button
+                          onClick={() => handleDeleteAttachment(attachment.id, attachment.filename)}
+                          className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                          title={t('delete')}
+                        >
+                          <TrashIcon size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{t('noAttachments')}</p>
+            )}
+
+            {/* Upload form */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('uploadAttachment')}
+              </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={fileDescription}
+                    onChange={(e) => setFileDescription(e.target.value)}
+                    placeholder={t('fileDescription')}
+                    className="input text-sm"
+                  />
+                  <select
+                    value={attachmentType}
+                    onChange={(e) => setAttachmentType(e.target.value)}
+                    className="input text-sm"
+                  >
+                    <option value="">{t('selectType')}</option>
+                    <option value="regulation">{t('typeRegulation')}</option>
+                    <option value="letter">{t('typeLetter')}</option>
+                    <option value="approval">{t('typeApproval')}</option>
+                    <option value="other">{t('typeOther')}</option>
+                  </select>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.zip,.rar"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingFile}
+                    className="btn btn-outline flex items-center"
+                  >
+                    <UploadIcon size={18} className="mr-2" />
+                    {uploadingFile ? t('uploading') : t('selectFile')}
+                  </button>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -120,15 +120,39 @@ export const requestsAPI = {
   myDecisions: (params) => api.get('/requests/my-decisions', { params }),
   get: (id) => api.get('/requests/' + id),
   create: (data) => api.post('/requests', data),
+  bulk: (data) => api.post('/requests/bulk', data),
   submit: (id) => api.post('/requests/' + id + '/submit'),
   approve: (id, data) => api.post('/requests/' + id + '/approve', data),
   addComment: (id, data) => api.post('/requests/' + id + '/comments', data),
   statistics: () => api.get('/requests/statistics'),
   searchSuggestions: (q) => api.get('/requests/search/suggestions', { params: { q } }),
   globalSearch: (params) => api.get('/requests/search/global', { params }),
+  // Attachments
+  listAttachments: (requestId) => api.get('/requests/' + requestId + '/attachments'),
+  uploadAttachment: (requestId, file, description, attachmentType) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (description) formData.append('description', description);
+    if (attachmentType) formData.append('attachment_type', attachmentType);
+    return api.post('/requests/' + requestId + '/attachments', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  downloadAttachment: (requestId, attachmentId) =>
+    api.get('/requests/' + requestId + '/attachments/' + attachmentId + '/download', { responseType: 'blob' }),
+  deleteAttachment: (requestId, attachmentId) =>
+    api.delete('/requests/' + requestId + '/attachments/' + attachmentId),
 };
 
 export const adminAPI = {
+  // Demo Users
+  demoUsers: {
+    list: () => api.get('/admin/demo-users'),
+    create: (data) => api.post('/admin/demo-users', data),
+    extend: (userId, minutes) => api.put('/admin/demo-users/' + userId + '/extend', { minutes }),
+    delete: (userId) => api.delete('/admin/demo-users/' + userId),
+    cleanup: () => api.post('/admin/demo-users/cleanup'),
+  },
   roles: {
     list: () => api.get('/admin/roles'),
     get: (id) => api.get('/admin/roles/' + id),

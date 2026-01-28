@@ -35,6 +35,10 @@ class User(Base):
     manager_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     auth_source = Column(String(20), default='local', nullable=False)  # 'local' or 'ldap'
 
+    # Demo account fields
+    is_demo = Column(Boolean, default=False, nullable=False)  # Is this a demo account
+    demo_expires_at = Column(DateTime(timezone=True), nullable=True)  # When demo access expires
+
     # AD-specific fields
     ad_guid = Column(String(36), unique=True, nullable=True, index=True)  # AD objectGUID
     ad_dn = Column(String(500), nullable=True)  # AD distinguishedName

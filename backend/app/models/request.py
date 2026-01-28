@@ -68,6 +68,7 @@ class AccessRequest(Base):
     approvals = relationship("Approval", back_populates="request", cascade="all, delete-orphan", order_by="Approval.step_number")
     comments = relationship("RequestComment", back_populates="request", cascade="all, delete-orphan", order_by="RequestComment.created_at.desc()")
     audit_logs = relationship("AuditLog", back_populates="request", cascade="all, delete-orphan")
+    attachments = relationship("RequestAttachment", back_populates="request", cascade="all, delete-orphan", order_by="RequestAttachment.uploaded_at.desc()")
 
 
 class ApprovalStatus(str, enum.Enum):
@@ -120,17 +121,48 @@ class RequestComment(Base):
 class AuditLog(Base):
     """Audit trail for all actions on requests"""
     __tablename__ = "audit_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     request_id = Column(Integer, ForeignKey('access_requests.id', ondelete='CASCADE'), nullable=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
-    
+
     action = Column(String(100), nullable=False)  # e.g., 'created', 'approved', 'rejected', 'commented'
     details = Column(Text, nullable=True)
     ip_address = Column(String(50), nullable=True)
-    
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    
+
     # Relationships
     request = relationship("AccessRequest", back_populates="audit_logs")
     user = relationship("User")
+
+
+class RequestAttachment(Base):
+    """File attachments for access requests (regulations, letters, external approvals)"""
+    __tablename__ = "request_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(Integer, ForeignKey('access_requests.id', ondelete='CASCADE'), nullable=False)
+
+    # File info
+    filename = Column(String(255), nullable=False)  # Original filename
+    stored_filename = Column(String(255), nullable=False)  # UUID-based stored filename
+    file_path = Column(String(500), nullable=False)  # Full path on disk
+    file_size = Column(Integer, nullable=False)  # Size in bytes
+    content_type = Column(String(100), nullable=False)  # MIME type
+
+    # Metadata
+    description = Column(String(500), nullable=True)  # Optional description
+    attachment_type = Column(String(50), nullable=True)  # regulation, letter, approval, other
+
+    # Upload info
+    uploaded_by_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Download tracking
+    download_count = Column(Integer, default=0, nullable=False)
+    last_downloaded_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    request = relationship("AccessRequest", back_populates="attachments")
+    uploaded_by = relationship("User")

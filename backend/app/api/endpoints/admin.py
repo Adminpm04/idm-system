@@ -4,7 +4,7 @@ from typing import List
 from app.db.session import get_db
 from app.schemas.user import RoleCreate, RoleUpdate, RoleResponse, PermissionResponse
 from app.models import Role, Permission, User, AuditLog, AccessRequest
-from app.api.deps import get_current_superuser
+from app.api.deps import get_current_superuser, get_admin_reader, get_admin_writer
 
 router = APIRouter()
 
@@ -12,9 +12,9 @@ router = APIRouter()
 @router.get("/roles", response_model=List[RoleResponse])
 async def list_roles(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_admin_reader)
 ):
-    """List all roles"""
+    """List all roles (read-only for demo users)"""
     roles = db.query(Role).all()
     return roles
 
@@ -23,7 +23,7 @@ async def list_roles(
 async def create_role(
     role_in: RoleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_admin_writer)
 ):
     """Create new role"""
     if db.query(Role).filter(Role.name == role_in.name).first():
@@ -55,7 +55,7 @@ async def update_role(
     role_id: int,
     role_in: RoleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_admin_writer)
 ):
     """Update an existing role"""
     role = db.query(Role).filter(Role.id == role_id).first()
@@ -95,7 +95,7 @@ async def update_role(
 async def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_admin_writer)
 ):
     """Delete a role"""
     role = db.query(Role).filter(Role.id == role_id).first()
@@ -123,9 +123,9 @@ async def delete_role(
 @router.get("/permissions", response_model=List[PermissionResponse])
 async def list_permissions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_admin_reader)
 ):
-    """List all permissions"""
+    """List all permissions (read-only for demo users)"""
     permissions = db.query(Permission).all()
     return permissions
 
@@ -135,7 +135,7 @@ async def get_audit_logs(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_admin_reader)
 ):
     """Get audit logs with full details"""
     # Загружаем логи с связанными данными
@@ -703,4 +703,193 @@ async def clear_ldap_cache(
     return {
         'success': True,
         'message': 'LDAP cache cleared'
+    }
+
+
+# ============== DEMO USERS ==============
+
+@router.get("/demo-users")
+async def list_demo_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """List all demo users with their expiration status"""
+    from datetime import datetime, timezone
+
+    demo_users = db.query(User).filter(User.is_demo == True).all()
+
+    result = []
+    now = datetime.now(timezone.utc)
+
+    for user in demo_users:
+        is_expired = user.demo_expires_at and user.demo_expires_at < now
+        remaining_minutes = 0
+        if user.demo_expires_at and not is_expired:
+            remaining = (user.demo_expires_at - now).total_seconds()
+            remaining_minutes = max(0, int(remaining / 60))
+
+        result.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.full_name,
+            'email': user.email,
+            'is_active': user.is_active,
+            'demo_expires_at': user.demo_expires_at.isoformat() if user.demo_expires_at else None,
+            'is_expired': is_expired,
+            'remaining_minutes': remaining_minutes,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        })
+
+    return result
+
+
+@router.post("/demo-users")
+async def create_demo_user(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Create a demo user with expiration time"""
+    from app.core.security import get_password_hash
+    from datetime import datetime, timezone, timedelta
+
+    username = data.get('username')
+    password = data.get('password', 'demo123')
+    full_name = data.get('full_name') or username
+    email = data.get('email') or f'{username}@demo.example.com'
+    minutes = data.get('minutes', 10)  # Default 10 minutes
+
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username is required"
+        )
+
+    # Check if username exists
+    if db.query(User).filter(User.username == username).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+
+    # Check if email exists
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists"
+        )
+
+    # Calculate expiration time
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+
+    # Create demo user
+    demo_user = User(
+        username=username,
+        email=email,
+        full_name=full_name,
+        hashed_password=get_password_hash(password),
+        is_active=True,
+        is_demo=True,
+        demo_expires_at=expires_at,
+        auth_source='local'
+    )
+    db.add(demo_user)
+    db.commit()
+    db.refresh(demo_user)
+
+    return {
+        'id': demo_user.id,
+        'username': demo_user.username,
+        'full_name': demo_user.full_name,
+        'email': demo_user.email,
+        'password': password,  # Return password for display
+        'demo_expires_at': expires_at.isoformat(),
+        'minutes': minutes,
+        'message': f'Demo user created. Access expires in {minutes} minutes.'
+    }
+
+
+@router.put("/demo-users/{user_id}/extend")
+async def extend_demo_user(
+    user_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Extend demo user expiration time"""
+    from datetime import datetime, timezone, timedelta
+
+    user = db.query(User).filter(User.id == user_id, User.is_demo == True).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Demo user not found"
+        )
+
+    minutes = data.get('minutes', 10)
+    now = datetime.now(timezone.utc)
+
+    # If already expired, extend from now; otherwise extend from current expiration
+    base_time = max(now, user.demo_expires_at) if user.demo_expires_at else now
+    user.demo_expires_at = base_time + timedelta(minutes=minutes)
+    user.is_active = True  # Reactivate if was deactivated
+
+    db.commit()
+
+    return {
+        'id': user.id,
+        'username': user.username,
+        'demo_expires_at': user.demo_expires_at.isoformat(),
+        'message': f'Demo access extended by {minutes} minutes'
+    }
+
+
+@router.delete("/demo-users/{user_id}")
+async def delete_demo_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Delete a demo user"""
+    user = db.query(User).filter(User.id == user_id, User.is_demo == True).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Demo user not found"
+        )
+
+    db.delete(user)
+    db.commit()
+
+    return {'message': 'Demo user deleted'}
+
+
+@router.post("/demo-users/cleanup")
+async def cleanup_expired_demo_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Deactivate all expired demo users"""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    expired_users = db.query(User).filter(
+        User.is_demo == True,
+        User.is_active == True,
+        User.demo_expires_at < now
+    ).all()
+
+    deactivated_count = 0
+    for user in expired_users:
+        user.is_active = False
+        deactivated_count += 1
+
+    db.commit()
+
+    return {
+        'deactivated': deactivated_count,
+        'message': f'{deactivated_count} expired demo users deactivated'
     }

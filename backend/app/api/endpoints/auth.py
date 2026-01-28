@@ -156,6 +156,17 @@ async def login(
             detail="User account is inactive",
         )
 
+    # Check if demo user has expired
+    if user.is_demo and user.demo_expires_at:
+        if user.demo_expires_at < datetime.now(timezone.utc):
+            # Deactivate the demo user
+            user.is_active = False
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Demo access has expired. Please contact administrator.",
+            )
+
     # Check if AD user is disabled (only for LDAP users, not local users)
     if user.auth_source == 'ldap' and user.ad_disabled:
         raise HTTPException(

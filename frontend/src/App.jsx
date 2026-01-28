@@ -577,7 +577,7 @@ function Layout({ children }) {
                 <Link to="/systems" className="hover:text-secondary transition-colors">
                   {t('systems')}
                 </Link>
-                {user?.is_superuser && (
+                {(user?.is_superuser || user?.is_demo) && (
                   <Link to="/admin" className="hover:text-secondary transition-colors">
                     {t('admin')}
                   </Link>

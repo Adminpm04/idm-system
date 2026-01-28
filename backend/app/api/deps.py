@@ -58,6 +58,30 @@ async def get_current_superuser(
     return current_user
 
 
+async def get_admin_reader(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Allow superusers and demo users (read-only access for demo)"""
+    if current_user.is_superuser or current_user.is_demo:
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Not enough permissions",
+    )
+
+
+async def get_admin_writer(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Only allow real superusers (not demo) for write operations"""
+    if current_user.is_superuser and not current_user.is_demo:
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Demo users have read-only access",
+    )
+
+
 def check_permission(resource: str, action: str):
     """Check if user has specific permission"""
     async def permission_checker(

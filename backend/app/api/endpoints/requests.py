@@ -1,19 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timezone
+import os
+import uuid
+import shutil
 from app.db.session import get_db
 from app.schemas.request import (
     AccessRequestCreate, AccessRequestResponse, AccessRequestDetailResponse,
     AccessRequestSubmit, ApprovalDecision, RequestCommentCreate,
-    RequestCommentResponse, RequestStatistics, MyRequestsSummary
+    RequestCommentResponse, RequestStatistics, MyRequestsSummary,
+    BulkRequestCreate, BulkRequestResponse,
+    AttachmentResponse, AttachmentUploadResponse
 )
 from app.models import (
-    AccessRequest, Approval, RequestComment, AuditLog, User,
+    AccessRequest, Approval, RequestComment, AuditLog, User, RequestAttachment,
     RequestStatus, ApprovalStatus, RequestType
 )
 from app.api.deps import get_current_user
 from app.core.constants import ApproverRoles
+
+# Configuration for file uploads
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads", "attachments")
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg", ".txt", ".zip", ".rar"}
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter()
 
@@ -292,8 +306,124 @@ async def create_request(
     
     db.commit()
     db.refresh(request)
-    
+
     return request
+
+
+@router.post("/bulk", response_model=BulkRequestResponse, status_code=status.HTTP_201_CREATED)
+async def create_bulk_requests(
+    request_in: BulkRequestCreate,
+    http_request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create multiple access requests for different users at once.
+
+    Available to all users (not just admins).
+    Maximum 20 users per bulk request.
+    """
+    from app.models.system import ApprovalChain
+
+    created_ids = []
+    skipped = []
+
+    for user_id in request_in.user_ids:
+        try:
+            # Verify target user exists
+            target_user = db.query(User).filter(User.id == user_id).first()
+            if not target_user:
+                skipped.append({"user_id": user_id, "reason": "User not found"})
+                continue
+
+            if not target_user.is_active:
+                skipped.append({"user_id": user_id, "reason": "User is inactive"})
+                continue
+
+            # Generate request number
+            request_number = generate_request_number(db)
+
+            # Create request
+            access_request = AccessRequest(
+                request_number=request_number,
+                requester_id=current_user.id,
+                target_user_id=user_id,
+                system_id=request_in.system_id,
+                subsystem_id=request_in.subsystem_id,
+                access_role_id=request_in.access_role_id,
+                request_type=request_in.request_type,
+                purpose=request_in.purpose,
+                is_temporary=request_in.is_temporary,
+                valid_from=request_in.valid_from,
+                valid_until=request_in.valid_until,
+                status=RequestStatus.DRAFT,
+                current_step=1
+            )
+            db.add(access_request)
+            db.flush()
+
+            # Create audit log
+            create_audit_log(
+                db,
+                access_request.id,
+                current_user.id,
+                "created",
+                f"Bulk request created for user {target_user.full_name}",
+                http_request.client.host if http_request.client else None
+            )
+
+            # Load approval chain
+            approval_chains = db.query(ApprovalChain).filter(
+                ApprovalChain.system_id == request_in.system_id
+            ).order_by(ApprovalChain.step_number).all()
+
+            # Create approvals from chain
+            if approval_chains:
+                for chain in approval_chains:
+                    approval = Approval(
+                        request_id=access_request.id,
+                        step_number=chain.step_number,
+                        approver_id=chain.approver_id,
+                        approver_role=chain.approver_role,
+                        status=ApprovalStatus.PENDING
+                    )
+                    db.add(approval)
+            else:
+                # Default fallback if no chain configured
+                if target_user.manager_id:
+                    approval = Approval(
+                        request_id=access_request.id,
+                        step_number=1,
+                        approver_id=target_user.manager_id,
+                        approver_role=ApproverRoles.MANAGER,
+                        status=ApprovalStatus.PENDING
+                    )
+                    db.add(approval)
+
+                security_user = db.query(User).filter(User.is_superuser == True).first()
+                if security_user:
+                    approval = Approval(
+                        request_id=access_request.id,
+                        step_number=2,
+                        approver_id=security_user.id,
+                        approver_role=ApproverRoles.SECURITY_OFFICER,
+                        status=ApprovalStatus.PENDING
+                    )
+                    db.add(approval)
+
+            created_ids.append(access_request.id)
+
+        except Exception as e:
+            skipped.append({"user_id": user_id, "reason": str(e)})
+            continue
+
+    db.commit()
+
+    return BulkRequestResponse(
+        total=len(request_in.user_ids),
+        created=len(created_ids),
+        skipped=skipped,
+        request_ids=created_ids
+    )
 
 
 @router.get("/{request_id}", response_model=AccessRequestDetailResponse)
@@ -349,9 +479,26 @@ async def get_request(
         comment_dict = comment.__dict__.copy()
         comment_dict['user_name'] = comment.user.full_name if comment.user else None
         comments_enriched.append(comment_dict)
-    
+
     result['comments'] = comments_enriched
-    
+
+    # Enrich attachments
+    attachments_enriched = []
+    for attachment in request.attachments:
+        attachments_enriched.append({
+            'id': attachment.id,
+            'filename': attachment.filename,
+            'file_size': attachment.file_size,
+            'content_type': attachment.content_type,
+            'description': attachment.description,
+            'attachment_type': attachment.attachment_type,
+            'uploaded_by_id': attachment.uploaded_by_id,
+            'uploaded_by_name': attachment.uploaded_by.full_name if attachment.uploaded_by else None,
+            'uploaded_at': attachment.uploaded_at
+        })
+
+    result['attachments'] = attachments_enriched
+
     return result
 
 
@@ -644,3 +791,234 @@ async def global_search(
         "requests": results,
         "total": total
     }
+
+
+# ============== ATTACHMENT ENDPOINTS ==============
+
+@router.post("/{request_id}/attachments", response_model=AttachmentUploadResponse)
+async def upload_attachment(
+    request_id: int,
+    file: UploadFile = File(...),
+    description: Optional[str] = Form(None),
+    attachment_type: Optional[str] = Form(None),
+    http_request: Request = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a file attachment to a request.
+
+    Allowed types: PDF, DOC, DOCX, XLS, XLSX, PNG, JPG, JPEG, TXT, ZIP, RAR
+    Max size: 10 MB
+    """
+    # Check request exists
+    access_request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+    if not access_request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # Check permission (requester, target user, approver, or admin)
+    is_involved = (
+        access_request.requester_id == current_user.id or
+        access_request.target_user_id == current_user.id or
+        current_user.is_superuser or
+        any(a.approver_id == current_user.id for a in access_request.approvals)
+    )
+    if not is_involved:
+        raise HTTPException(status_code=403, detail="Not authorized to upload attachments")
+
+    # Validate file extension
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+    # Read file and check size
+    content = await file.read()
+    file_size = len(content)
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max size: {MAX_FILE_SIZE // (1024*1024)} MB"
+        )
+
+    # Generate unique filename
+    stored_filename = f"{uuid.uuid4().hex}{file_ext}"
+    file_path = os.path.join(UPLOAD_DIR, stored_filename)
+
+    # Save file
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # Create attachment record
+    attachment = RequestAttachment(
+        request_id=request_id,
+        filename=file.filename,
+        stored_filename=stored_filename,
+        file_path=file_path,
+        file_size=file_size,
+        content_type=file.content_type or "application/octet-stream",
+        description=description,
+        attachment_type=attachment_type,
+        uploaded_by_id=current_user.id
+    )
+    db.add(attachment)
+
+    # Create audit log
+    create_audit_log(
+        db, request_id, current_user.id,
+        "attachment_uploaded",
+        f"File uploaded: {file.filename} ({file_size} bytes)",
+        http_request.client.host if http_request and http_request.client else None
+    )
+
+    db.commit()
+    db.refresh(attachment)
+
+    return AttachmentUploadResponse(
+        id=attachment.id,
+        filename=attachment.filename,
+        file_size=attachment.file_size,
+        content_type=attachment.content_type,
+        message="File uploaded successfully"
+    )
+
+
+@router.get("/{request_id}/attachments", response_model=List[AttachmentResponse])
+async def list_attachments(
+    request_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List all attachments for a request."""
+    # Check request exists
+    access_request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+    if not access_request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # Check permission
+    is_involved = (
+        access_request.requester_id == current_user.id or
+        access_request.target_user_id == current_user.id or
+        current_user.is_superuser or
+        any(a.approver_id == current_user.id for a in access_request.approvals)
+    )
+    if not is_involved:
+        raise HTTPException(status_code=403, detail="Not authorized to view attachments")
+
+    attachments = db.query(RequestAttachment).filter(
+        RequestAttachment.request_id == request_id
+    ).order_by(RequestAttachment.uploaded_at.desc()).all()
+
+    result = []
+    for att in attachments:
+        result.append(AttachmentResponse(
+            id=att.id,
+            request_id=att.request_id,
+            filename=att.filename,
+            file_size=att.file_size,
+            content_type=att.content_type,
+            description=att.description,
+            attachment_type=att.attachment_type,
+            uploaded_by_id=att.uploaded_by_id,
+            uploaded_by_name=att.uploaded_by.full_name if att.uploaded_by else None,
+            uploaded_at=att.uploaded_at,
+            download_count=att.download_count,
+            last_downloaded_at=att.last_downloaded_at
+        ))
+
+    return result
+
+
+@router.get("/{request_id}/attachments/{attachment_id}/download")
+async def download_attachment(
+    request_id: int,
+    attachment_id: int,
+    http_request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download an attachment file."""
+    # Check attachment exists
+    attachment = db.query(RequestAttachment).filter(
+        RequestAttachment.id == attachment_id,
+        RequestAttachment.request_id == request_id
+    ).first()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    # Check request permission
+    access_request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+    is_involved = (
+        access_request.requester_id == current_user.id or
+        access_request.target_user_id == current_user.id or
+        current_user.is_superuser or
+        any(a.approver_id == current_user.id for a in access_request.approvals)
+    )
+    if not is_involved:
+        raise HTTPException(status_code=403, detail="Not authorized to download")
+
+    # Check file exists
+    if not os.path.exists(attachment.file_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    # Update download stats
+    attachment.download_count += 1
+    attachment.last_downloaded_at = datetime.now(timezone.utc)
+
+    # Create audit log
+    create_audit_log(
+        db, request_id, current_user.id,
+        "attachment_downloaded",
+        f"File downloaded: {attachment.filename}",
+        http_request.client.host if http_request.client else None
+    )
+
+    db.commit()
+
+    return FileResponse(
+        path=attachment.file_path,
+        filename=attachment.filename,
+        media_type=attachment.content_type
+    )
+
+
+@router.delete("/{request_id}/attachments/{attachment_id}")
+async def delete_attachment(
+    request_id: int,
+    attachment_id: int,
+    http_request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an attachment. Only uploader or admin can delete."""
+    attachment = db.query(RequestAttachment).filter(
+        RequestAttachment.id == attachment_id,
+        RequestAttachment.request_id == request_id
+    ).first()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    # Check permission (only uploader or admin)
+    if attachment.uploaded_by_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Only uploader or admin can delete")
+
+    # Delete file from disk
+    if os.path.exists(attachment.file_path):
+        os.remove(attachment.file_path)
+
+    # Create audit log before deletion
+    create_audit_log(
+        db, request_id, current_user.id,
+        "attachment_deleted",
+        f"File deleted: {attachment.filename}",
+        http_request.client.host if http_request.client else None
+    )
+
+    # Delete record
+    db.delete(attachment)
+    db.commit()
+
+    return {"message": "Attachment deleted successfully"}

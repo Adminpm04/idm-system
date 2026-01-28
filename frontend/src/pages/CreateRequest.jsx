@@ -1,9 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import { systemsAPI, subsystemsAPI, usersAPI, requestsAPI } from '../services/api';
 import { CheckIcon, InfoIcon } from '../components/Icons';
 import { useTheme, useLanguage } from '../App';
+
+// File icons
+const FileIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+  </svg>
+);
+
+const UploadIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="17 8 12 3 7 8"></polyline>
+    <line x1="12" y1="3" x2="12" y2="15"></line>
+  </svg>
+);
+
+const TrashIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="3 6 5 6 21 6"></polyline>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+  </svg>
+);
 
 function CreateRequestPage() {
   const navigate = useNavigate();
@@ -15,7 +38,7 @@ function CreateRequestPage() {
 
   // Form data
   const [formData, setFormData] = useState({
-    target_user_id: '',
+    target_user_ids: [],  // Changed from target_user_id to array for multi-select
     system_id: '',
     subsystem_id: '',
     access_role_id: '',
@@ -25,6 +48,10 @@ function CreateRequestPage() {
     valid_from: '',
     valid_until: '',
   });
+
+  // File attachments (optional)
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const fileInputRef = useRef(null);
 
   // Options data
   const [systems, setSystems] = useState([]);
@@ -96,6 +123,46 @@ function CreateRequestPage() {
     }
   };
 
+  // File handling
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = [];
+    const errors = [];
+
+    files.forEach(file => {
+      // Check size (5 MB)
+      if (file.size > 5 * 1024 * 1024) {
+        errors.push(`${file.name}: ${t('fileTooLarge')}`);
+        return;
+      }
+      // Check extension
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      const allowed = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'txt', 'zip', 'rar'];
+      if (!allowed.includes(ext)) {
+        errors.push(`${file.name}: ${t('fileTypeNotAllowed')}`);
+        return;
+      }
+      validFiles.push(file);
+    });
+
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+    }
+
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   const handleChange = async (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -116,27 +183,87 @@ function CreateRequestPage() {
     setLoading(true);
 
     try {
-      // Convert string IDs to integers
-      const requestData = {
-        ...formData,
-        target_user_id: parseInt(formData.target_user_id),
-        system_id: parseInt(formData.system_id),
-        subsystem_id: formData.subsystem_id ? parseInt(formData.subsystem_id) : null,
-        access_role_id: parseInt(formData.access_role_id),
-      };
+      const userIds = formData.target_user_ids;
 
-      // Remove date fields if not temporary
-      if (!requestData.is_temporary) {
-        delete requestData.valid_from;
-        delete requestData.valid_until;
+      if (userIds.length === 0) {
+        setError(t('selectAtLeastOneUser'));
+        setLoading(false);
+        return;
       }
 
-      const response = await requestsAPI.create(requestData);
+      if (userIds.length === 1) {
+        // Single user: use original API
+        const requestData = {
+          target_user_id: userIds[0],
+          system_id: parseInt(formData.system_id),
+          subsystem_id: formData.subsystem_id ? parseInt(formData.subsystem_id) : null,
+          access_role_id: parseInt(formData.access_role_id),
+          request_type: formData.request_type,
+          purpose: formData.purpose,
+          is_temporary: formData.is_temporary,
+          valid_from: formData.is_temporary ? formData.valid_from || null : null,
+          valid_until: formData.is_temporary ? formData.valid_until || null : null,
+        };
 
-      setSuccess(true);
-      setTimeout(() => {
-        navigate(`/requests/${response.data.id}`);
-      }, 1500);
+        const response = await requestsAPI.create(requestData);
+        const requestId = response.data.id;
+
+        // Upload files if any (optional)
+        if (selectedFiles.length > 0) {
+          for (const file of selectedFiles) {
+            try {
+              await requestsAPI.uploadAttachment(requestId, file, '', '');
+            } catch (uploadErr) {
+              console.error('Error uploading file:', uploadErr);
+            }
+          }
+        }
+
+        setSuccess(true);
+        setTimeout(() => {
+          navigate(`/requests/${requestId}`);
+        }, 1500);
+      } else {
+        // Multiple users: use bulk API
+        const bulkData = {
+          user_ids: userIds,
+          system_id: parseInt(formData.system_id),
+          subsystem_id: formData.subsystem_id ? parseInt(formData.subsystem_id) : null,
+          access_role_id: parseInt(formData.access_role_id),
+          request_type: formData.request_type,
+          purpose: formData.purpose,
+          is_temporary: formData.is_temporary,
+          valid_from: formData.is_temporary ? formData.valid_from || null : null,
+          valid_until: formData.is_temporary ? formData.valid_until || null : null,
+        };
+
+        const response = await requestsAPI.bulk(bulkData);
+
+        if (response.data.skipped && response.data.skipped.length > 0) {
+          const skippedInfo = response.data.skipped.map(s =>
+            `ID ${s.user_id}: ${s.reason}`
+          ).join(', ');
+          setError(`${t('someRequestsSkipped')}: ${skippedInfo}`);
+        }
+
+        // Upload files to all created requests (optional)
+        if (selectedFiles.length > 0 && response.data.request_ids.length > 0) {
+          for (const reqId of response.data.request_ids) {
+            for (const file of selectedFiles) {
+              try {
+                await requestsAPI.uploadAttachment(reqId, file, '', '');
+              } catch (uploadErr) {
+                console.error('Error uploading file to request', reqId, uploadErr);
+              }
+            }
+          }
+        }
+
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/my-requests');
+        }, 1500);
+      }
     } catch (err) {
       console.error('Error creating request:', err);
       setError(err.response?.data?.detail || 'Error creating request');
@@ -154,7 +281,7 @@ function CreateRequestPage() {
     label: user.full_name
   }));
 
-  const selectedUserOption = userOptions.find(opt => opt.value === parseInt(formData.target_user_id)) || null;
+  const selectedUserOptions = userOptions.filter(opt => formData.target_user_ids.includes(opt.value));
 
   // Custom styles for react-select to match .input class with dark mode support
   const selectStyles = {
@@ -200,6 +327,24 @@ function CreateRequestPage() {
     placeholder: (base) => ({
       ...base,
       color: isDark ? '#9ca3af' : '#6b7280'
+    }),
+    multiValue: (base) => ({
+      ...base,
+      backgroundColor: isDark ? '#4b5563' : '#e5e7eb',
+      borderRadius: '0.375rem'
+    }),
+    multiValueLabel: (base) => ({
+      ...base,
+      color: isDark ? '#f3f4f6' : '#111827',
+      padding: '2px 6px'
+    }),
+    multiValueRemove: (base) => ({
+      ...base,
+      color: isDark ? '#9ca3af' : '#6b7280',
+      ':hover': {
+        backgroundColor: isDark ? '#6b7280' : '#d1d5db',
+        color: isDark ? '#f3f4f6' : '#111827'
+      }
     })
   };
 
@@ -228,23 +373,37 @@ function CreateRequestPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('whoNeedsAccess')} <span className="text-red-500">*</span>
+              {formData.target_user_ids.length > 1 && (
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  ({formData.target_user_ids.length} {t('usersSelected')}, max 20)
+                </span>
+              )}
             </label>
             <Select
               options={userOptions}
-              value={selectedUserOption}
-              onChange={(option) => setFormData(prev => ({ ...prev, target_user_id: option ? option.value : '' }))}
+              value={selectedUserOptions}
+              onChange={(options) => {
+                const ids = options ? options.map(opt => opt.value) : [];
+                // Limit to 20 users
+                if (ids.length <= 20) {
+                  setFormData(prev => ({ ...prev, target_user_ids: ids }));
+                }
+              }}
               styles={selectStyles}
               placeholder={t('enterName')}
               noOptionsMessage={() => t('userNotFound')}
               isClearable
               isSearchable
+              isMulti
             />
-            <input
-              type="hidden"
-              name="target_user_id"
-              value={formData.target_user_id}
-              required
-            />
+            {formData.target_user_ids.length === 0 && (
+              <input
+                type="hidden"
+                name="target_user_ids"
+                value=""
+                required
+              />
+            )}
           </div>
 
           {/* Request Type */}
@@ -418,6 +577,67 @@ function CreateRequestPage() {
             )}
           </div>
 
+          {/* File Attachments (Optional) */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+              <FileIcon size={18} className="mr-2" />
+              {t('attachments')}
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-normal">
+                ({t('optional')})
+              </span>
+            </label>
+
+            {/* Selected files list */}
+            {selectedFiles.length > 0 && (
+              <div className="mb-3 space-y-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-lg px-3 py-2"
+                  >
+                    <div className="flex items-center min-w-0">
+                      <FileIcon size={16} className="text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
+                      <span className="text-sm dark:text-gray-200 truncate">{file.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                        ({formatFileSize(file.size)})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                    >
+                      <TrashIcon size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload button */}
+            <div className="flex items-center space-x-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                className="hidden"
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.zip,.rar"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn btn-outline flex items-center text-sm"
+              >
+                <UploadIcon size={16} className="mr-2" />
+                {t('selectFiles')}
+              </button>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)
+              </span>
+            </div>
+          </div>
+
           {/* Buttons */}
           <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
@@ -431,9 +651,14 @@ function CreateRequestPage() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || success}
+              disabled={loading || success || formData.target_user_ids.length === 0}
             >
-              {loading ? t('creating') : t('createRequest')}
+              {loading
+                ? t('creating')
+                : formData.target_user_ids.length > 1
+                  ? `${t('createRequests')} ${formData.target_user_ids.length} ${t('requests')}`
+                  : t('createRequest')
+              }
             </button>
           </div>
         </form>
