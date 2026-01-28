@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { authAPI, requestsAPI } from './services/api';
+import { translations } from './i18n/translations';
 
 // Import pages
 import CreateRequestPage from './pages/CreateRequest';
@@ -13,6 +14,132 @@ import MyApprovalsPage from './pages/MyApprovals';
 import GlobalSearch from './components/GlobalSearch';
 import MemoryGame from './components/MemoryGame';
 import { CheckIcon } from './components/Icons';
+
+// Language Context
+const LanguageContext = createContext(null);
+
+export const useLanguage = () => {
+  const context = useContext(LanguageContext);
+  if (!context) throw new Error('useLanguage must be used within LanguageProvider');
+  return context;
+};
+
+// Language Provider
+function LanguageProvider({ children }) {
+  const [language, setLanguage] = useState(() => {
+    const saved = localStorage.getItem('language');
+    return saved || 'ru'; // Русский по умолчанию
+  });
+
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
+
+  const t = (key) => {
+    return translations[language]?.[key] || translations['ru']?.[key] || key;
+  };
+
+  const toggleLanguage = () => {
+    setLanguage(prev => prev === 'ru' ? 'en' : 'ru');
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, toggleLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+// Theme Context
+const ThemeContext = createContext(null);
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error('useTheme must be used within ThemeProvider');
+  return context;
+};
+
+// Theme Provider
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  const isDark = theme === 'dark';
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, isDark }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// Theme Toggle Button
+function ThemeToggle() {
+  const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-300"
+      title={isDark ? t('switchToLight') : t('switchToDark')}
+    >
+      {isDark ? (
+        <svg className="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+        </svg>
+      ) : (
+        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// Language Toggle Button
+function LanguageToggle({ variant = 'header' }) {
+  const { language, toggleLanguage, t } = useLanguage();
+
+  if (variant === 'header') {
+    return (
+      <button
+        onClick={toggleLanguage}
+        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-300 text-sm font-medium"
+        title={t('language')}
+      >
+        {language === 'ru' ? 'EN' : 'RU'}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={toggleLanguage}
+      className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 text-sm font-medium text-gray-700 dark:text-gray-300"
+      title={t('language')}
+    >
+      {language === 'ru' ? 'EN' : 'RU'}
+    </button>
+  );
+}
 
 // Auth Context
 const AuthContext = React.createContext(null);
@@ -27,6 +154,7 @@ export const useAuth = () => {
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -59,8 +187,8 @@ function AuthProvider({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Загрузка...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-xl dark:text-gray-100">{t('loading')}</div>
       </div>
     );
   }
@@ -80,6 +208,8 @@ function ProtectedRoute({ children }) {
 
 // Friendly Login Background with Brand Colors
 function LoginBackground() {
+  const { t } = useLanguage();
+
   return (
     <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-primary via-primary to-[#1a3d7a]">
       {/* Soft animated blobs with brand colors */}
@@ -188,20 +318,20 @@ function LoginBackground() {
       {/* Bottom content */}
       <div className="absolute bottom-0 left-0 right-0 p-10 text-white">
         <h2 className="text-4xl font-bold mb-3 drop-shadow-lg">
-          Добро пожаловать!
+          {t('welcome')}
         </h2>
         <p className="text-xl opacity-90 max-w-md mb-6">
-          Единая система управления доступами
+          {t('unifiedAccessSystem')}
         </p>
         <div className="flex flex-wrap gap-3">
           <span className="bg-secondary text-primary rounded-full px-4 py-2 text-sm font-semibold">
-            Быстрый доступ
+            {t('quickAccess')}
           </span>
           <span className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-sm font-medium">
-            Безопасность
+            {t('security')}
           </span>
           <span className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-sm font-medium">
-            Простота
+            {t('simplicity')}
           </span>
         </div>
       </div>
@@ -230,6 +360,8 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showGame, setShowGame] = useState(false);
   const { login } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -241,7 +373,7 @@ function LoginPage() {
       await login(username, password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Ошибка входа');
+      setError(err.response?.data?.detail || t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -255,13 +387,33 @@ function LoginPage() {
       </div>
 
       {/* Right side - Login form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900 relative">
+        {/* Theme and Language toggles in top right */}
+        <div className="absolute top-4 right-4 flex space-x-2">
+          <LanguageToggle variant="login" />
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300"
+            title={isDark ? t('switchToLight') : t('switchToDark')}
+          >
+            {isDark ? (
+              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
+            )}
+          </button>
+        </div>
+
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <button
               onClick={() => setShowGame(true)}
               className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-2xl mb-4 shadow-lg animate-bounce-slow relative overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow"
-              title="Нажми для сюрприза!"
+              title={t('clickForSurprise')}
             >
               <div className="absolute inset-0 bg-secondary/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <svg className="w-10 h-10 text-secondary relative z-10 transform group-hover:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
@@ -269,7 +421,7 @@ function LoginPage() {
               </svg>
             </button>
             <h1 className="text-3xl font-bold text-primary mb-2">IDM <span className="text-secondary">System</span></h1>
-            <p className="text-gray-500">Система управления доступами</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('accessManagementSystem')}</p>
             <style>{`
               @keyframes bounce-slow {
                 0%, 100% { transform: translateY(0); }
@@ -282,10 +434,10 @@ function LoginPage() {
           {/* Memory Game Modal */}
           {showGame && <MemoryGame onClose={() => setShowGame(false)} />}
 
-          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
+                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg flex items-center">
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
                   </svg>
@@ -294,12 +446,12 @@ function LoginPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Имя пользователя
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('username')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-primary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-primary/50 dark:text-primary/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
@@ -308,7 +460,7 @@ function LoginPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="input pl-10"
-                    placeholder="Введите логин"
+                    placeholder={t('enterUsername')}
                     required
                     autoFocus
                   />
@@ -316,12 +468,12 @@ function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Пароль
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('password')}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-primary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-primary/50 dark:text-primary/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
@@ -330,7 +482,7 @@ function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="input pl-10"
-                    placeholder="Введите пароль"
+                    placeholder={t('enterPassword')}
                     required
                   />
                 </div>
@@ -347,28 +499,28 @@ function LoginPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Вход...
+                    {t('signingIn')}
                   </span>
-                ) : 'Войти в систему'}
+                ) : t('login')}
               </button>
             </form>
 
-            <div className="mt-6 pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-center text-sm text-gray-400">
+            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
                 <svg className="w-4 h-4 mr-2 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Войдите с учётной записью домена
+                {t('signInWithDomain')}
               </div>
             </div>
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-400 dark:text-gray-500">
               IDM System
             </p>
-            <p className="text-xs text-gray-300 mt-1">
-              Oriyonbonk © 2025
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+              Oriyonbonk 2025
             </p>
           </div>
         </div>
@@ -380,8 +532,8 @@ function LoginPage() {
 // Layout
 function Layout({ children }) {
   const { user, logout } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchPendingApprovals = async () => {
@@ -396,7 +548,7 @@ function Layout({ children }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-primary text-white shadow-lg">
         <div className="container mx-auto px-4">
@@ -409,13 +561,13 @@ function Layout({ children }) {
 
               <nav className="hidden md:flex space-x-6">
                 <Link to="/" className="hover:text-secondary transition-colors">
-                  Главная
+                  {t('home')}
                 </Link>
                 <Link to="/my-requests" className="hover:text-secondary transition-colors">
-                  Мои заявки
+                  {t('myRequests')}
                 </Link>
                 <Link to="/my-approvals" className="hover:text-secondary transition-colors relative flex items-center">
-                  На согласовании
+                  {t('pendingApprovals')}
                   {pendingApprovalsCount > 0 && (
                     <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
                       {pendingApprovalsCount}
@@ -423,11 +575,11 @@ function Layout({ children }) {
                   )}
                 </Link>
                 <Link to="/systems" className="hover:text-secondary transition-colors">
-                  Системы
+                  {t('systems')}
                 </Link>
                 {user?.is_superuser && (
                   <Link to="/admin" className="hover:text-secondary transition-colors">
-                    Админ
+                    {t('admin')}
                   </Link>
                 )}
               </nav>
@@ -438,10 +590,12 @@ function Layout({ children }) {
               <GlobalSearch />
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              <LanguageToggle variant="header" />
+              <ThemeToggle />
               <span className="text-sm hidden md:inline">{user?.full_name}</span>
               <button onClick={logout} className="btn btn-secondary text-sm">
-                Выход
+                {t('logout')}
               </button>
             </div>
           </div>
@@ -456,44 +610,46 @@ function Layout({ children }) {
   );
 }
 
-// Dashboard (твой кастомный, оставляю как есть)
+// Dashboard
 function Dashboard() {
+  const { t } = useLanguage();
+
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-primary">Панель управления</h1>
-        <p className="text-gray-600">Система управления доступами предназначена для централизованного запроса, согласования и предоставления доступов к корпоративным системам.</p>
+        <h1 className="text-3xl font-bold text-primary dark:text-blue-400">{t('controlPanel')}</h1>
+        <p className="text-gray-600 dark:text-gray-400">{t('controlPanelDesc')}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Link to="/create-request" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2">Новая заявка</h3>
-            <p className="text-gray-600">Запросить доступ к системе</p>
+            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('newRequest')}</h3>
+            <p className="text-gray-600 dark:text-gray-400">{t('requestAccess')}</p>
           </Link>
 
           <Link to="/my-requests" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2">Мои заявки</h3>
-            <p className="text-gray-600">Просмотр статусов заявок</p>
+            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('myRequests')}</h3>
+            <p className="text-gray-600 dark:text-gray-400">{t('viewStatuses')}</p>
           </Link>
 
           <Link to="/my-approvals" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2">На согласовании</h3>
-            <p className="text-gray-600">Заявки, ожидающие утверждения</p>
+            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('pendingApprovals')}</h3>
+            <p className="text-gray-600 dark:text-gray-400">{t('awaitingApproval')}</p>
           </Link>
 
           <Link to="/systems" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2">Системы</h3>
-            <p className="text-gray-600">Доступные системы</p>
+            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('systems')}</h3>
+            <p className="text-gray-600 dark:text-gray-400">{t('availableSystems')}</p>
           </Link>
         </div>
 
         <div className="card">
-          <h2 className="text-2xl font-semibold mb-4">Добро пожаловать в IDM System</h2>
-          <ul className="space-y-3 text-gray-700">
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Полная прозрачность процесса согласования</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Автоматическая маршрутизация заявок</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Аудит всех действий и решений</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Временные доступы с авто-отзывом</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />Периодическое переутверждение доступов</li>
+          <h2 className="text-2xl font-semibold mb-4 dark:text-gray-100">{t('welcomeIDM')}</h2>
+          <ul className="space-y-3 text-gray-700 dark:text-gray-300">
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature1')}</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature2')}</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature3')}</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature4')}</li>
+            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature5')}</li>
           </ul>
         </div>
       </div>
@@ -505,92 +661,95 @@ function Dashboard() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/create-request"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CreateRequestPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/create-request"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <CreateRequestPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/my-requests"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <MyRequestsListPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/my-requests"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <MyRequestsListPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/requests/:id"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <RequestDetailPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/requests/:id"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RequestDetailPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/my-approvals"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <MyApprovalsPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/my-approvals"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <MyApprovalsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/systems"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <SystemsPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/systems"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <SystemsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <AdminPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <AdminPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-          {/* На всякий случай: редирект на главную если route не найден */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </AuthProvider>
+              {/* Fallback: redirect to home if route not found */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }
 
 export default App;
-

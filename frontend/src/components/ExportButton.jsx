@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { exportAPI } from '../services/api';
+import { useLanguage } from '../App';
 
 // 3D Export icon
 const ExportIcon = ({ size = 24 }) => (
@@ -46,6 +47,7 @@ const ExcelIcon = ({ size = 20 }) => (
 );
 
 export default function ExportButton({ isAdmin = false }) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(null);
   const dropdownRef = useRef(null);
@@ -99,7 +101,7 @@ export default function ExportButton({ isAdmin = false }) {
       setIsOpen(false);
     } catch (error) {
       console.error('Export error:', error);
-      alert('Ошибка экспорта: ' + (error.response?.data?.detail || error.message));
+      alert('Export error: ' + (error.response?.data?.detail || error.message));
     } finally {
       setLoading(null);
     }
@@ -116,7 +118,7 @@ export default function ExportButton({ isAdmin = false }) {
         disabled={loading}
       >
         <ExportIcon size={20} />
-        <span className="ml-2">Экспорт</span>
+        <span className="ml-2">{t('export')}</span>
         <svg
           className={`ml-2 w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
@@ -128,21 +130,21 @@ export default function ExportButton({ isAdmin = false }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
           <div className="py-1">
-            <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase bg-gray-50">
-              Выберите формат
+            <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700">
+              {t('selectFormat')}
             </div>
 
             <button
               onClick={() => handleExport('pdf')}
               disabled={loading}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 disabled:opacity-50"
+              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 disabled:opacity-50"
             >
               <PdfIcon />
               <div>
-                <p className="font-medium text-gray-900">PDF</p>
-                <p className="text-xs text-gray-500">Сводная таблица заявок</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">PDF</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('pdfSummary')}</p>
               </div>
               {loading === 'pdf' && (
                 <div className="ml-auto w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -152,12 +154,12 @@ export default function ExportButton({ isAdmin = false }) {
             <button
               onClick={() => handleExport('word')}
               disabled={loading}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 disabled:opacity-50"
+              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 disabled:opacity-50"
             >
               <WordIcon />
               <div>
-                <p className="font-medium text-gray-900">Word</p>
-                <p className="text-xs text-gray-500">Детальный отчёт</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">Word</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('wordDetailed')}</p>
               </div>
               {loading === 'word' && (
                 <div className="ml-auto w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -167,12 +169,12 @@ export default function ExportButton({ isAdmin = false }) {
             <button
               onClick={() => handleExport('excel')}
               disabled={loading}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 disabled:opacity-50"
+              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 disabled:opacity-50"
             >
               <ExcelIcon />
               <div>
-                <p className="font-medium text-gray-900">Excel</p>
-                <p className="text-xs text-gray-500">Полные данные + статистика</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">Excel</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('excelFull')}</p>
               </div>
               {loading === 'excel' && (
                 <div className="ml-auto w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -180,8 +182,8 @@ export default function ExportButton({ isAdmin = false }) {
             </button>
           </div>
 
-          <div className="px-4 py-2 bg-blue-50 border-t text-xs text-blue-700">
-            Экспортируются все заявки системы
+          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/30 border-t border-gray-200 dark:border-gray-700 text-xs text-blue-700 dark:text-blue-300">
+            {t('exportsAllRequests')}
           </div>
         </div>
       )}

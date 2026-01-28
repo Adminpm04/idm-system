@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { systemsAPI, subsystemsAPI, approvalChainAPI, usersAPI } from '../services/api';
-import { InfoIcon, SystemIcon, SubsystemIcon, PlusIcon } from '../components/Icons';
+import { InfoIcon, PlusIcon } from '../components/Icons';
+import { useLanguage } from '../App';
 
 export default function AdminSystems() {
+  const { t } = useLanguage();
   const [systems, setSystems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -22,21 +24,21 @@ export default function AdminSystems() {
       setSystems(res.data);
     } catch (error) {
       console.error('Error loading systems:', error);
-      alert('Ошибка загрузки систем');
+      alert('Error loading systems');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Вы уверены что хотите удалить эту систему?')) return;
-    
+    if (!confirm(t('confirmDeleteSystem'))) return;
+
     try {
       await systemsAPI.delete(id);
-      alert('Система удалена');
+      alert(t('systemDeleted'));
       loadSystems();
     } catch (error) {
-      alert('Ошибка удаления: ' + (error.response?.data?.detail || error.message));
+      alert(t('errorDeleting') + ': ' + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -44,8 +46,8 @@ export default function AdminSystems() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Управление системами</h1>
-          <p className="text-gray-600 mt-2">Добавление и редактирование систем и подсистем</p>
+          <h1 className="text-3xl font-bold text-primary dark:text-blue-400">{t('systemManagement')}</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">{t('addEditSystems')}</p>
         </div>
         <button
           onClick={() => {
@@ -54,76 +56,78 @@ export default function AdminSystems() {
           }}
           className="btn btn-primary flex items-center"
         >
-          <PlusIcon size={18} className="mr-2" /> Добавить систему
+          <PlusIcon size={18} className="mr-2" /> {t('addSystem')}
         </button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">Загрузка...</div>
+        <div className="flex justify-center py-12 text-gray-600 dark:text-gray-400">{t('loading')}</div>
       ) : (
-        <div className="card">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Название</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Код</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Описание</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Действия</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y">
-              {systems.map((system) => (
-                <tr key={system.id}>
-                  <td className="px-6 py-4 font-medium">{system.name}</td>
-                  <td className="px-6 py-4">{system.code}</td>
-                  <td className="px-6 py-4">{system.description}</td>
-                  <td className="px-6 py-4">
-                    {system.is_active ? (
-                      <span className="badge badge-success">Активна</span>
-                    ) : (
-                      <span className="badge badge-secondary">Неактивна</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button 
-                      onClick={() => {
-                        setSelectedSystem(system);
-                        setShowSubsystemsModal(true);
-                      }}
-                      style={{backgroundColor: "#F9BF3F", color: "#16306C"}} className="hover:opacity-80 px-3 py-1 rounded text-sm font-medium"
-                    >
-                      Подсистемы
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setSelectedSystem(system);
-                        setShowApprovalModal(true);
-                      }}
-                      style={{backgroundColor: "#16306C", color: "white"}} className="hover:opacity-80 px-3 py-1 rounded text-sm font-medium"
-                    >
-                      Утверждающие
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setEditingSystem(system);
-                        setShowModal(true);
-                      }}
-                      className="text-primary hover:text-primary/80"
-                    >
-                      Изменить
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(system.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Удалить
-                    </button>
-                  </td>
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('name')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('code')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('description')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('actions')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {systems.map((system) => (
+                  <tr key={system.id}>
+                    <td className="px-6 py-4 font-medium dark:text-gray-100">{system.name}</td>
+                    <td className="px-6 py-4 dark:text-gray-300">{system.code}</td>
+                    <td className="px-6 py-4 dark:text-gray-300">{system.description}</td>
+                    <td className="px-6 py-4">
+                      {system.is_active ? (
+                        <span className="badge badge-success">{t('active')}</span>
+                      ) : (
+                        <span className="badge badge-secondary">{t('inactive')}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button
+                        onClick={() => {
+                          setSelectedSystem(system);
+                          setShowSubsystemsModal(true);
+                        }}
+                        className="bg-secondary text-primary hover:opacity-80 px-3 py-1 rounded text-sm font-medium"
+                      >
+                        {t('subsystems')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedSystem(system);
+                          setShowApprovalModal(true);
+                        }}
+                        className="bg-primary text-white hover:opacity-80 px-3 py-1 rounded text-sm font-medium"
+                      >
+                        {t('approvers')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingSystem(system);
+                          setShowModal(true);
+                        }}
+                        className="text-primary dark:text-blue-400 hover:text-primary/80 dark:hover:text-blue-300"
+                      >
+                        {t('edit')}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(system.id)}
+                        className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                      >
+                        {t('delete')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -166,10 +170,7 @@ export default function AdminSystems() {
 }
 
 function SystemModal({ system, onClose, onSave }) {
-  const [approvalChain, setApprovalChain] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loadingChain, setLoadingChain] = useState(false);
-  
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: system?.name || '',
     code: system?.code || '',
@@ -183,27 +184,27 @@ function SystemModal({ system, onClose, onSave }) {
     try {
       if (system) {
         await systemsAPI.update(system.id, formData);
-        alert('Система обновлена');
+        alert(t('systemUpdated'));
       } else {
         await systemsAPI.create(formData);
-        alert('Система создана');
+        alert(t('systemCreated'));
       }
       onSave();
     } catch (error) {
-      alert('Ошибка: ' + (error.response?.data?.detail || error.message));
+      alert(t('error') + ': ' + (error.response?.data?.detail || error.message));
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 className="text-2xl font-bold mb-4">
-          {system ? 'Редактировать систему' : 'Новая система'}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <h2 className="text-2xl font-bold mb-4 dark:text-gray-100">
+          {system ? t('editSystem') : t('newSystem')}
         </h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Название *</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('name')} *</label>
             <input
               type="text"
               required
@@ -214,7 +215,7 @@ function SystemModal({ system, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Код *</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('code')} *</label>
             <input
               type="text"
               required
@@ -225,7 +226,7 @@ function SystemModal({ system, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Описание</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('description')}</label>
             <textarea
               className="input"
               rows="3"
@@ -235,7 +236,7 @@ function SystemModal({ system, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">URL</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('url')}</label>
             <input
               type="url"
               className="input"
@@ -252,16 +253,16 @@ function SystemModal({ system, onClose, onSave }) {
                 checked={formData.is_active}
                 onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
               />
-              <span className="text-sm">Активна</span>
+              <span className="text-sm dark:text-gray-300">{t('active')}</span>
             </label>
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
             <button type="button" onClick={onClose} className="btn btn-secondary">
-              Отмена
+              {t('cancel')}
             </button>
             <button type="submit" className="btn btn-primary">
-              Сохранить
+              {t('save')}
             </button>
           </div>
         </form>
@@ -271,6 +272,7 @@ function SystemModal({ system, onClose, onSave }) {
 }
 
 function SubsystemsModal({ system, onClose }) {
+  const { t } = useLanguage();
   const [subsystems, setSubsystems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -293,23 +295,23 @@ function SubsystemsModal({ system, onClose }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Удалить эту подсистему?')) return;
+    if (!confirm(t('deleteSubsystem'))) return;
     try {
       await subsystemsAPI.delete(id);
       loadSubsystems();
     } catch (error) {
-      alert('Ошибка: ' + error.message);
+      alert(t('error') + ': ' + error.message);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-screen overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-3xl w-full mx-4 max-h-screen overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">
-            Подсистемы: {system.name}
+          <h2 className="text-2xl font-bold dark:text-gray-100">
+            {t('subsystems')}: {system.name}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">&times;</button>
         </div>
 
         <button
@@ -319,44 +321,44 @@ function SubsystemsModal({ system, onClose }) {
           }}
           className="btn btn-primary mb-4"
         >
-          Добавить подсистему
+          {t('addSubsystem')}
         </button>
 
         {loading ? (
-          <div className="py-8 text-center">Загрузка...</div>
+          <div className="py-8 text-center text-gray-600 dark:text-gray-400">{t('loading')}</div>
         ) : subsystems.length === 0 ? (
-          <div className="py-8 text-center text-gray-500">Нет подсистем</div>
+          <div className="py-8 text-center text-gray-500 dark:text-gray-400">{t('noSubsystems')}</div>
         ) : (
           <table className="min-w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-4 py-2 text-left">Название</th>
-                <th className="px-4 py-2 text-left">Код</th>
-                <th className="px-4 py-2 text-left">Описание</th>
-                <th className="px-4 py-2 text-right">Действия</th>
+                <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-300">{t('name')}</th>
+                <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-300">{t('code')}</th>
+                <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-300">{t('description')}</th>
+                <th className="px-4 py-2 text-right text-gray-500 dark:text-gray-300">{t('actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {subsystems.map((sub) => (
                 <tr key={sub.id}>
-                  <td className="px-4 py-2">{sub.name}</td>
-                  <td className="px-4 py-2">{sub.code}</td>
-                  <td className="px-4 py-2">{sub.description}</td>
+                  <td className="px-4 py-2 dark:text-gray-100">{sub.name}</td>
+                  <td className="px-4 py-2 dark:text-gray-300">{sub.code}</td>
+                  <td className="px-4 py-2 dark:text-gray-300">{sub.description}</td>
                   <td className="px-4 py-2 text-right space-x-2">
                     <button
                       onClick={() => {
                         setEditingSubsystem(sub);
                         setShowAddForm(true);
                       }}
-                      className="text-primary hover:text-primary/80"
+                      className="text-primary dark:text-blue-400 hover:text-primary/80"
                     >
-                      Изменить
+                      {t('edit')}
                     </button>
                     <button
                       onClick={() => handleDelete(sub.id)}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-red-600 dark:text-red-400 hover:text-red-800"
                     >
-                      Удалить
+                      {t('delete')}
                     </button>
                   </td>
                 </tr>
@@ -386,6 +388,7 @@ function SubsystemsModal({ system, onClose }) {
 }
 
 function SubsystemForm({ systemId, subsystem, onClose, onSave }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     system_id: systemId,
     name: subsystem?.name || '',
@@ -399,27 +402,27 @@ function SubsystemForm({ systemId, subsystem, onClose, onSave }) {
     try {
       if (subsystem) {
         await subsystemsAPI.update(subsystem.id, formData);
-        alert('Подсистема обновлена');
+        alert(t('subsystemUpdated'));
       } else {
         await subsystemsAPI.create(formData);
-        alert('Подсистема создана');
+        alert(t('subsystemCreated'));
       }
       onSave();
     } catch (error) {
-      alert('Ошибка: ' + (error.response?.data?.detail || error.message));
+      alert(t('error') + ': ' + (error.response?.data?.detail || error.message));
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-xl font-bold mb-4">
-          {subsystem ? 'Редактировать подсистему' : 'Новая подсистема'}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 className="text-xl font-bold mb-4 dark:text-gray-100">
+          {subsystem ? t('editSubsystem') : t('newSubsystem')}
         </h3>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Название *</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('name')} *</label>
             <input
               type="text"
               required
@@ -430,7 +433,7 @@ function SubsystemForm({ systemId, subsystem, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Код *</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('code')} *</label>
             <input
               type="text"
               required
@@ -441,7 +444,7 @@ function SubsystemForm({ systemId, subsystem, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Описание</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('description')}</label>
             <textarea
               className="input"
               rows="2"
@@ -452,10 +455,10 @@ function SubsystemForm({ systemId, subsystem, onClose, onSave }) {
 
           <div className="flex justify-end space-x-3 mt-6">
             <button type="button" onClick={onClose} className="btn btn-secondary">
-              Отмена
+              {t('cancel')}
             </button>
             <button type="submit" className="btn btn-primary">
-              Сохранить
+              {t('save')}
             </button>
           </div>
         </form>
@@ -465,6 +468,7 @@ function SubsystemForm({ systemId, subsystem, onClose, onSave }) {
 }
 
 function ApprovalChainModal({ system, onClose }) {
+  const { t } = useLanguage();
   const [approvalChain, setApprovalChain] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -498,7 +502,7 @@ function ApprovalChainModal({ system, onClose }) {
 
   const handleAdd = async () => {
     if (!newApprover.approver_id) {
-      alert('Выберите утверждающего');
+      alert(t('selectUser'));
       return;
     }
 
@@ -514,64 +518,64 @@ function ApprovalChainModal({ system, onClose }) {
       setNewApprover({ approver_id: '', approver_role: '' });
       loadApprovalChain();
     } catch (error) {
-      alert('Ошибка: ' + error.message);
+      alert(t('error') + ': ' + error.message);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Удалить этого утверждающего из цепочки?')) return;
+    if (!confirm(t('removeApprover'))) return;
     try {
       await approvalChainAPI.delete(id);
       loadApprovalChain();
     } catch (error) {
-      alert('Ошибка: ' + error.message);
+      alert(t('error') + ': ' + error.message);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">
-            Цепочка согласования: {system.name}
+          <h2 className="text-2xl font-bold dark:text-gray-100">
+            {t('approvalChain')}: {system.name}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">&times;</button>
         </div>
 
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded p-3">
-          <p className="text-sm text-blue-800 flex items-center">
-            <InfoIcon size={18} className="mr-2 flex-shrink-0" /> Заявки на доступ к этой системе будут проходить согласование в указанном порядке
+        <div className="mb-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded p-3">
+          <p className="text-sm text-blue-800 dark:text-blue-300 flex items-center">
+            <InfoIcon size={18} className="mr-2 flex-shrink-0" /> {t('approvalChainDesc')}
           </p>
         </div>
 
         {loading ? (
-          <div className="py-8 text-center">Загрузка...</div>
+          <div className="py-8 text-center text-gray-600 dark:text-gray-400">{t('loading')}</div>
         ) : (
           <>
             {approvalChain.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
-                Нет настроенных утверждающих. Добавьте первого!
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                {t('noApproversConfigured')}
               </div>
             ) : (
               <div className="space-y-3 mb-6">
-                {approvalChain.map((chain, index) => {
+                {approvalChain.map((chain) => {
                   const user = users.find(u => u.id === chain.approver_id);
                   return (
-                    <div key={chain.id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                    <div key={chain.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded">
                       <div className="flex items-center space-x-3">
                         <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
                           {chain.step_number}
                         </div>
                         <div>
-                          <p className="font-medium">{user?.full_name || 'Неизвестен'}</p>
-                          <p className="text-sm text-gray-600">{chain.approver_role || 'Утверждающий'}</p>
+                          <p className="font-medium dark:text-gray-100">{user?.full_name || t('unknown')}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{chain.approver_role || t('approver')}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleDelete(chain.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
+                        className="text-red-600 dark:text-red-400 hover:text-red-800 text-sm"
                       >
-                        Удалить
+                        {t('delete')}
                       </button>
                     </div>
                   );
@@ -579,17 +583,17 @@ function ApprovalChainModal({ system, onClose }) {
               </div>
             )}
 
-            <div className="border-t pt-4">
-              <h3 className="font-semibold mb-3">Добавить утверждающего</h3>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h3 className="font-semibold mb-3 dark:text-gray-100">{t('addApprover')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Пользователь *</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('user')} *</label>
                   <select
                     className="input"
                     value={newApprover.approver_id}
                     onChange={(e) => setNewApprover({...newApprover, approver_id: e.target.value})}
                   >
-                    <option value="">Выберите пользователя</option>
+                    <option value="">{t('selectUser')}</option>
                     {users.map(user => (
                       <option key={user.id} value={user.id}>
                         {user.full_name} ({user.email})
@@ -598,11 +602,11 @@ function ApprovalChainModal({ system, onClose }) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Роль (необязательно)</label>
+                  <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('roleOptional')}</label>
                   <input
                     type="text"
                     className="input"
-                    placeholder="например: Менеджер"
+                    placeholder={t('roleExample')}
                     value={newApprover.approver_role}
                     onChange={(e) => setNewApprover({...newApprover, approver_role: e.target.value})}
                   />
@@ -612,7 +616,7 @@ function ApprovalChainModal({ system, onClose }) {
                 onClick={handleAdd}
                 className="btn btn-primary mt-3 w-full"
               >
-                Добавить
+                {t('add')}
               </button>
             </div>
           </>

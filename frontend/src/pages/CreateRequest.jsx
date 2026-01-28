@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import { systemsAPI, subsystemsAPI, usersAPI, requestsAPI } from '../services/api';
 import { CheckIcon, InfoIcon } from '../components/Icons';
+import { useTheme, useLanguage } from '../App';
 
 function CreateRequestPage() {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  
+
   // Form data
   const [formData, setFormData] = useState({
     target_user_id: '',
@@ -52,9 +55,10 @@ function CreateRequestPage() {
       setSystems(response.data);
     } catch (err) {
       console.error('Error loading systems:', err);
-      setError('Ошибка загрузки систем');
+      setError('Error loading systems');
     }
   };
+
   const loadSubsystems = async (systemId) => {
     if (!systemId) {
       setSubsystems([]);
@@ -69,14 +73,13 @@ function CreateRequestPage() {
     }
   };
 
-
   const loadUsers = async () => {
     try {
       const response = await usersAPI.list();
       setUsers(response.data);
     } catch (err) {
       console.error('Error loading users:', err);
-      setError('Ошибка загрузки пользователей');
+      setError('Error loading users');
     }
   };
 
@@ -87,7 +90,7 @@ function CreateRequestPage() {
       setAccessRoles(response.data);
     } catch (err) {
       console.error('Error loading access roles:', err);
-      setError('Ошибка загрузки ролей доступа');
+      setError('Error loading access roles');
     } finally {
       setLoadingRoles(false);
     }
@@ -99,8 +102,8 @@ function CreateRequestPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
-    // Загрузим подсистемы когда выбрана система
+
+    // Load subsystems when system is selected
     if (name === 'system_id') {
       await loadSubsystems(value);
       setFormData(prev => ({ ...prev, subsystem_id: '' }));
@@ -129,14 +132,14 @@ function CreateRequestPage() {
       }
 
       const response = await requestsAPI.create(requestData);
-      
+
       setSuccess(true);
       setTimeout(() => {
         navigate(`/requests/${response.data.id}`);
       }, 1500);
     } catch (err) {
       console.error('Error creating request:', err);
-      setError(err.response?.data?.detail || 'Ошибка создания заявки');
+      setError(err.response?.data?.detail || 'Error creating request');
     } finally {
       setLoading(false);
     }
@@ -153,67 +156,86 @@ function CreateRequestPage() {
 
   const selectedUserOption = userOptions.find(opt => opt.value === parseInt(formData.target_user_id)) || null;
 
-  // Custom styles for react-select to match .input class
+  // Custom styles for react-select to match .input class with dark mode support
   const selectStyles = {
     control: (base, state) => ({
       ...base,
       width: '100%',
       padding: '2px 8px',
-      border: state.isFocused ? 'none' : '1px solid #d1d5db',
+      border: state.isFocused ? 'none' : isDark ? '1px solid #4b5563' : '1px solid #d1d5db',
       borderRadius: '0.5rem',
       boxShadow: state.isFocused ? '0 0 0 2px #16306C' : 'none',
+      backgroundColor: isDark ? '#374151' : 'white',
       '&:hover': {
-        borderColor: '#d1d5db'
+        borderColor: isDark ? '#4b5563' : '#d1d5db'
       }
     }),
     menu: (base) => ({
       ...base,
       borderRadius: '0.5rem',
-      zIndex: 50
+      zIndex: 50,
+      backgroundColor: isDark ? '#374151' : 'white',
+      border: isDark ? '1px solid #4b5563' : '1px solid #e5e7eb'
     }),
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isSelected ? '#16306C' : state.isFocused ? '#e5e7eb' : 'white',
-      color: state.isSelected ? 'white' : '#111827',
+      backgroundColor: state.isSelected
+        ? '#16306C'
+        : state.isFocused
+          ? (isDark ? '#4b5563' : '#e5e7eb')
+          : (isDark ? '#374151' : 'white'),
+      color: state.isSelected ? 'white' : (isDark ? '#f3f4f6' : '#111827'),
       '&:active': {
         backgroundColor: '#16306C'
       }
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: isDark ? '#f3f4f6' : '#111827'
+    }),
+    input: (base) => ({
+      ...base,
+      color: isDark ? '#f3f4f6' : '#111827'
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: isDark ? '#9ca3af' : '#6b7280'
     })
   };
 
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-primary">Новая заявка на доступ</h1>
-        <p className="text-gray-600 mt-2">Заполните форму для запроса доступа к системе</p>
+        <h1 className="text-3xl font-bold text-primary dark:text-blue-400">{t('newAccessRequest')}</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">{t('fillFormDesc')}</p>
       </div>
 
       <div className="card">
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
-            <CheckIcon size={20} className="mr-2" /> Заявка успешно создана! Перенаправление...
+          <div className="mb-6 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg flex items-center">
+            <CheckIcon size={20} className="mr-2" /> {t('requestCreated')}
           </div>
         )}
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Пользователь */}
+          {/* User */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Для кого запрашивается доступ <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('whoNeedsAccess')} <span className="text-red-500">*</span>
             </label>
             <Select
               options={userOptions}
               value={selectedUserOption}
               onChange={(option) => setFormData(prev => ({ ...prev, target_user_id: option ? option.value : '' }))}
               styles={selectStyles}
-              placeholder="Введите имя..."
-              noOptionsMessage={() => 'Пользователь не найден'}
+              placeholder={t('enterName')}
+              noOptionsMessage={() => t('userNotFound')}
               isClearable
               isSearchable
             />
@@ -225,10 +247,10 @@ function CreateRequestPage() {
             />
           </div>
 
-          {/* Тип заявки */}
+          {/* Request Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Тип заявки <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('requestType')} <span className="text-red-500">*</span>
             </label>
             <select
               name="request_type"
@@ -237,17 +259,17 @@ function CreateRequestPage() {
               className="input"
               required
             >
-              <option value="new_access">Новый доступ</option>
-              <option value="modify_access">Изменение доступа</option>
-              <option value="revoke_access">Отзыв доступа</option>
-              <option value="temporary_access">Временный доступ</option>
+              <option value="new_access">{t('newAccessType')}</option>
+              <option value="modify_access">{t('modifyAccessType')}</option>
+              <option value="revoke_access">{t('revokeAccessType')}</option>
+              <option value="temporary_access">{t('temporaryAccessType')}</option>
             </select>
           </div>
 
-          {/* Система */}
+          {/* System */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Система <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('system')} <span className="text-red-500">*</span>
             </label>
             <select
               name="system_id"
@@ -256,7 +278,7 @@ function CreateRequestPage() {
               className="input"
               required
             >
-              <option value="">Выберите систему</option>
+              <option value="">{t('selectSystem')}</option>
               {systems.map(system => (
                 <option key={system.id} value={system.id}>
                   {system.name} ({system.code})
@@ -264,18 +286,17 @@ function CreateRequestPage() {
               ))}
             </select>
             {selectedSystem && (
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                 {selectedSystem.description}
               </p>
             )}
           </div>
 
-
-          {/* Подсистема */}
+          {/* Subsystem */}
           {subsystems.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Подсистема <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('subsystem')} <span className="text-red-500">*</span>
               </label>
               <select
                 name="subsystem_id"
@@ -284,23 +305,23 @@ function CreateRequestPage() {
                 className="input"
                 required
               >
-                <option value="">Выберите подсистему</option>
+                <option value="">{t('selectSubsystem')}</option>
                 {subsystems.map(subsystem => (
                   <option key={subsystem.id} value={subsystem.id}>
                     {subsystem.name} ({subsystem.code})
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                 {subsystems.find(s => s.id === parseInt(formData.subsystem_id))?.description || ''}
               </p>
             </div>
           )}
 
-          {/* Роль доступа */}
+          {/* Access Role */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Роль доступа <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('accessRole')} <span className="text-red-500">*</span>
             </label>
             <select
               name="access_role_id"
@@ -311,29 +332,29 @@ function CreateRequestPage() {
               disabled={!formData.system_id || loadingRoles}
             >
               <option value="">
-                {!formData.system_id 
-                  ? 'Сначала выберите систему' 
-                  : loadingRoles 
-                  ? 'Загрузка...' 
-                  : 'Выберите роль'}
+                {!formData.system_id
+                  ? t('selectSystemFirst')
+                  : loadingRoles
+                  ? t('loading')
+                  : t('selectRole')}
               </option>
               {accessRoles.map(role => (
                 <option key={role.id} value={role.id}>
-                  {role.name} - {role.access_level} (риск: {role.risk_level})
+                  {role.name} - {role.access_level} (risk: {role.risk_level})
                 </option>
               ))}
             </select>
             {selectedRole && (
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                 {selectedRole.description}
               </p>
             )}
           </div>
 
-          {/* Обоснование */}
+          {/* Justification */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Обоснование (цель запроса) <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('justificationLabel')} <span className="text-red-500">*</span>
             </label>
             <textarea
               name="purpose"
@@ -341,36 +362,36 @@ function CreateRequestPage() {
               onChange={handleChange}
               className="input"
               rows="4"
-              placeholder="Подробно опишите, для чего нужен доступ и как он будет использоваться..."
+              placeholder={t('justificationPlaceholder')}
               required
               minLength={10}
             />
-            <p className="mt-1 text-sm text-gray-500">
-              Минимум 10 символов. Укажите бизнес-обоснование.
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
+              {t('minChars')}
             </p>
           </div>
 
-          {/* Временный доступ */}
-          <div className="border-t pt-6">
+          {/* Temporary Access */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <div className="flex items-center mb-4">
               <input
                 type="checkbox"
                 name="is_temporary"
                 checked={formData.is_temporary}
                 onChange={handleChange}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-primary dark:bg-gray-700"
                 id="is_temporary"
               />
-              <label htmlFor="is_temporary" className="ml-2 text-sm font-medium text-gray-700">
-                Временный доступ (с ограниченным сроком действия)
+              <label htmlFor="is_temporary" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('temporaryAccessCheckbox')}
               </label>
             </div>
 
             {formData.is_temporary && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Действителен с
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('validFromLabel')}
                   </label>
                   <input
                     type="date"
@@ -381,8 +402,8 @@ function CreateRequestPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Действителен до <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('validUntilLabel')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -397,37 +418,37 @@ function CreateRequestPage() {
             )}
           </div>
 
-          {/* Кнопки */}
-          <div className="flex justify-end space-x-4 pt-6 border-t">
+          {/* Buttons */}
+          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={() => navigate('/')}
               className="btn btn-outline"
               disabled={loading}
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="submit"
               className="btn btn-primary"
               disabled={loading || success}
             >
-              {loading ? 'Создание...' : 'Создать заявку'}
+              {loading ? t('creating') : t('createRequest')}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Информация */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
-          <InfoIcon size={20} className="mr-2" /> Что дальше?
+      {/* Information */}
+      <div className="mt-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-900 dark:text-blue-200 mb-2 flex items-center">
+          <InfoIcon size={20} className="mr-2" /> {t('whatNext')}
         </h3>
-        <ul className="text-sm text-blue-800 space-y-2">
-          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> После создания заявка будет в статусе "Черновик"</li>
-          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> Вы сможете отредактировать её перед отправкой</li>
-          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> После отправки заявка пойдёт на согласование</li>
-          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> Вы увидите всех согласующих и текущий статус</li>
+        <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> {t('whatNext1')}</li>
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> {t('whatNext2')}</li>
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> {t('whatNext3')}</li>
+          <li className="flex items-start"><CheckIcon size={16} className="mr-2 mt-0.5 flex-shrink-0" /> {t('whatNext4')}</li>
         </ul>
       </div>
     </div>

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../services/api';
 import { CrossIcon, WarningIcon, PlusIcon, RoleIcon } from '../components/Icons';
+import { useLanguage } from '../App';
 
 export default function AdminRoles() {
+  const { t } = useLanguage();
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +26,7 @@ export default function AdminRoles() {
       setRoles(res.data);
     } catch (error) {
       console.error('Error loading roles:', error);
-      alert('Ошибка загрузки ролей');
+      alert('Error loading roles');
     } finally {
       setLoading(false);
     }
@@ -54,7 +56,7 @@ export default function AdminRoles() {
       setRoleToDelete(null);
       loadRoles();
     } catch (error) {
-      setDeleteError(error.response?.data?.detail || 'Ошибка удаления роли');
+      setDeleteError(error.response?.data?.detail || 'Error deleting role');
     }
   };
 
@@ -62,8 +64,8 @@ export default function AdminRoles() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Управление ролями</h1>
-          <p className="text-gray-600 mt-2">Роли и права доступа в системе</p>
+          <h1 className="text-3xl font-bold text-primary dark:text-blue-400">{t('roleManagement')}</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">{t('rolesAndPermissions')}</p>
         </div>
         <button
           onClick={() => {
@@ -72,12 +74,12 @@ export default function AdminRoles() {
           }}
           className="btn btn-primary flex items-center"
         >
-          <PlusIcon size={18} className="mr-2" /> Добавить роль
+          <PlusIcon size={18} className="mr-2" /> {t('addRole')}
         </button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">Загрузка...</div>
+        <div className="flex justify-center py-12 text-gray-600 dark:text-gray-400">{t('loading')}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {roles.map((role) => (
@@ -86,45 +88,45 @@ export default function AdminRoles() {
                 <div className="flex items-center">
                   <RoleIcon size={28} className="mr-3" />
                   <div>
-                    <h3 className="text-xl font-bold text-primary">{role.name}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{role.description}</p>
+                    <h3 className="text-xl font-bold text-primary dark:text-blue-400">{role.name}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{role.description}</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  Права доступа ({role.permissions?.length || 0}):
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('permissionsCount')} ({role.permissions?.length || 0}):
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {role.permissions?.slice(0, 5).map((perm) => (
-                    <span key={perm.id} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    <span key={perm.id} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                       {perm.resource}:{perm.action}
                     </span>
                   ))}
                   {role.permissions?.length > 5 && (
-                    <span className="text-xs text-gray-500">
-                      +{role.permissions.length - 5} ещё
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      +{role.permissions.length - 5} {t('more')}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t flex justify-end space-x-3">
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
                 <button
                   onClick={() => {
                     setEditingRole(role);
                     setShowModal(true);
                   }}
-                  className="text-primary hover:text-primary/80 text-sm"
+                  className="text-primary dark:text-blue-400 hover:text-primary/80 text-sm"
                 >
-                  Изменить
+                  {t('edit')}
                 </button>
                 <button
                   onClick={() => handleDeleteClick(role)}
-                  className="text-red-600 hover:text-red-800 text-sm"
+                  className="text-red-600 dark:text-red-400 hover:text-red-800 text-sm"
                 >
-                  Удалить
+                  {t('delete')}
                 </button>
               </div>
             </div>
@@ -151,21 +153,21 @@ export default function AdminRoles() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && roleToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center mb-4">
               <WarningIcon size={32} className="mr-3" />
-              <h2 className="text-xl font-bold text-gray-900">Удаление роли</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('deleteRole')}</h2>
             </div>
 
-            <p className="text-gray-600 mb-4">
-              Вы уверены, что хотите удалить роль <strong>"{roleToDelete.name}"</strong>?
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {t('confirmDeleteRole')} <strong className="dark:text-gray-200">"{roleToDelete.name}"</strong>?
             </p>
-            <p className="text-sm text-gray-500 mb-4">
-              Это действие нельзя отменить. Роль будет удалена вместе со всеми её правами доступа.
+            <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+              {t('deleteRoleWarning')}
             </p>
 
             {deleteError && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
+              <div className="mb-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg flex items-start">
                 <CrossIcon size={20} className="mr-2 flex-shrink-0 mt-0.5" />
                 <span>{deleteError}</span>
               </div>
@@ -180,13 +182,13 @@ export default function AdminRoles() {
                 }}
                 className="btn btn-secondary"
               >
-                Отмена
+                {t('cancel')}
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 className="btn bg-red-600 text-white hover:bg-red-700"
               >
-                Удалить
+                {t('delete')}
               </button>
             </div>
           </div>
@@ -197,13 +199,14 @@ export default function AdminRoles() {
 }
 
 function RoleModal({ role, permissions, onClose, onSave }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: role?.name || '',
     description: role?.description || '',
     permission_ids: role?.permissions?.map(p => p.id) || [],
   });
 
-  // Группируем права по ресурсам
+  // Group permissions by resource
   const groupedPermissions = permissions.reduce((acc, perm) => {
     if (!acc[perm.resource]) {
       acc[perm.resource] = [];
@@ -216,10 +219,10 @@ function RoleModal({ role, permissions, onClose, onSave }) {
     e.preventDefault();
     try {
       await adminAPI.roles.create(formData);
-      alert(role ? 'Роль обновлена' : 'Роль создана');
+      alert(role ? t('roleUpdated') : t('roleCreated'));
       onSave();
     } catch (error) {
-      alert('Ошибка: ' + (error.response?.data?.detail || error.message));
+      alert(t('error') + ': ' + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -234,17 +237,17 @@ function RoleModal({ role, permissions, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">
-            {role ? 'Редактировать роль' : 'Новая роль'}
+          <h2 className="text-2xl font-bold dark:text-gray-100">
+            {role ? t('editRole') : t('newRole')}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">&times;</button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Название роли *</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('roleName')} *</label>
             <input
               type="text"
               required
@@ -255,7 +258,7 @@ function RoleModal({ role, permissions, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Описание</label>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('description')}</label>
             <textarea
               className="input"
               rows="2"
@@ -265,11 +268,11 @@ function RoleModal({ role, permissions, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Права доступа</label>
-            <div className="max-h-64 overflow-y-auto border rounded p-3 space-y-3">
+            <label className="block text-sm font-medium mb-2 dark:text-gray-300">{t('permissions')}</label>
+            <div className="max-h-64 overflow-y-auto border dark:border-gray-600 rounded p-3 space-y-3 dark:bg-gray-700">
               {Object.entries(groupedPermissions).map(([resource, perms]) => (
-                <div key={resource} className="border-b pb-2">
-                  <h4 className="font-medium text-sm text-gray-700 mb-2">{resource}</h4>
+                <div key={resource} className="border-b border-gray-200 dark:border-gray-600 pb-2">
+                  <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">{resource}</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {perms.map(perm => (
                       <label key={perm.id} className="flex items-center text-sm">
@@ -279,7 +282,7 @@ function RoleModal({ role, permissions, onClose, onSave }) {
                           checked={formData.permission_ids.includes(perm.id)}
                           onChange={() => togglePermission(perm.id)}
                         />
-                        <span>{perm.action}</span>
+                        <span className="dark:text-gray-300">{perm.action}</span>
                       </label>
                     ))}
                   </div>
@@ -290,10 +293,10 @@ function RoleModal({ role, permissions, onClose, onSave }) {
 
           <div className="flex justify-end space-x-3 mt-6">
             <button type="button" onClick={onClose} className="btn btn-secondary">
-              Отмена
+              {t('cancel')}
             </button>
             <button type="submit" className="btn btn-primary">
-              Сохранить
+              {t('save')}
             </button>
           </div>
         </form>

@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { requestsAPI } from '../services/api';
 import { format } from 'date-fns';
 import { SystemIcon, SubsystemIcon, UserIcon, RoleIcon, RequestIcon, StatsIcon, SearchIcon } from './Icons';
+import { useLanguage } from '../App';
 
 function GlobalSearch() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -113,23 +115,23 @@ function GlobalSearch() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      draft: 'bg-gray-100 text-gray-700',
-      submitted: 'bg-blue-100 text-blue-700',
-      in_review: 'bg-yellow-100 text-yellow-700',
-      approved: 'bg-green-100 text-green-700',
-      rejected: 'bg-red-100 text-red-700',
-      implemented: 'bg-purple-100 text-purple-700',
+      draft: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
+      submitted: 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300',
+      in_review: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300',
+      approved: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
+      rejected: 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300',
+      implemented: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300',
     };
     const labels = {
-      draft: 'Черновик',
-      submitted: 'Отправлено',
-      in_review: 'На согласовании',
-      approved: 'Согласовано',
-      rejected: 'Отклонено',
-      implemented: 'Реализовано',
+      draft: t('statusDraft'),
+      submitted: t('statusSubmitted'),
+      in_review: t('statusInReview'),
+      approved: t('statusApproved'),
+      rejected: t('statusRejected'),
+      implemented: t('statusImplemented'),
     };
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badges[status] || 'bg-gray-100'}`}>
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badges[status] || 'bg-gray-100 dark:bg-gray-700'}`}>
         {labels[status] || status}
       </span>
     );
@@ -165,8 +167,8 @@ function GlobalSearch() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.length >= 2 && setShowDropdown(true)}
-          placeholder="Поиск заявок..."
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm bg-white text-gray-900"
+          placeholder={t('searchRequests')}
+          className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
         />
         <span className="absolute left-2 top-1/2 -translate-y-1/2">
           <SearchIcon size={18} />
@@ -181,18 +183,18 @@ function GlobalSearch() {
       {showDropdown && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 max-h-[70vh] overflow-hidden"
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-[70vh] overflow-hidden"
         >
           {searchMode === 'suggestions' && suggestions.length > 0 && (
             <div className="py-2">
-              <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">
-                Подсказки
+              <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t('suggestions')}
               </div>
               {suggestions.map((suggestion, index) => (
                 <button
                   key={`${suggestion.type}-${suggestion.id || index}`}
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 text-gray-900"
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center space-x-3 text-gray-900 dark:text-gray-100"
                 >
                   <span className="flex-shrink-0">{getSuggestionIcon(suggestion.type)}</span>
                   <span className="flex-1 text-sm">{suggestion.label}</span>
@@ -201,9 +203,9 @@ function GlobalSearch() {
               {query.length >= 2 && (
                 <button
                   onClick={handleSearch}
-                  className="w-full px-3 py-2 text-left hover:bg-primary/10 text-primary font-medium text-sm border-t"
+                  className="w-full px-3 py-2 text-left hover:bg-primary/10 dark:hover:bg-primary/20 text-primary dark:text-blue-400 font-medium text-sm border-t border-gray-200 dark:border-gray-700"
                 >
-                  <SearchIcon size={16} className="inline mr-1" /> Искать "{query}" во всех заявках...
+                  <SearchIcon size={16} className="inline mr-1" /> {t('searchInAll')}
                 </button>
               )}
             </div>
@@ -211,9 +213,9 @@ function GlobalSearch() {
 
           {searchMode === 'results' && (
             <div>
-              <div className="px-3 py-2 bg-gray-50 border-b flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">
-                  Найдено: {totalResults} заявок
+              <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('found')}: {totalResults} {t('requests')}
                 </span>
                 <button
                   onClick={() => {
@@ -222,15 +224,15 @@ function GlobalSearch() {
                     setSuggestions([]);
                     setResults([]);
                   }}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-primary dark:text-blue-400 hover:underline"
                 >
-                  Очистить
+                  {t('clear')}
                 </button>
               </div>
               <div className="max-h-[50vh] overflow-y-auto">
                 {results.length === 0 ? (
-                  <div className="px-3 py-8 text-center text-gray-500">
-                    Заявок не найдено
+                  <div className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+                    {t('noRequestsFoundSearch')}
                   </div>
                 ) : (
                   results.map((request) => (
@@ -241,23 +243,23 @@ function GlobalSearch() {
                         setShowDropdown(false);
                         setQuery('');
                       }}
-                      className="w-full px-3 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      className="w-full px-3 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-primary text-sm">
+                        <span className="font-medium text-primary dark:text-blue-400 text-sm">
                           {request.request_number}
                         </span>
                         {getStatusBadge(request.status)}
                       </div>
-                      <div className="text-xs text-gray-600 space-y-0.5">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
                         <div className="flex justify-between">
                           <span>{request.system_name}</span>
                           {request.subsystem_name && (
-                            <span className="text-gray-400">→ {request.subsystem_name}</span>
+                            <span className="text-gray-400 dark:text-gray-500">-&gt; {request.subsystem_name}</span>
                           )}
                         </div>
                         <div className="flex justify-between">
-                          <span>Для: {request.target_user_name}</span>
+                          <span>For: {request.target_user_name}</span>
                           <span>{formatDate(request.created_at)}</span>
                         </div>
                       </div>
@@ -272,9 +274,9 @@ function GlobalSearch() {
             <div className="py-4">
               <button
                 onClick={handleSearch}
-                className="w-full px-3 py-2 text-left hover:bg-primary/10 text-primary font-medium text-sm"
+                className="w-full px-3 py-2 text-left hover:bg-primary/10 dark:hover:bg-primary/20 text-primary dark:text-blue-400 font-medium text-sm"
               >
-                <SearchIcon size={16} className="inline mr-1" /> Искать "{query}" во всех заявках...
+                <SearchIcon size={16} className="inline mr-1" /> {t('searchInAll')}
               </button>
             </div>
           )}
