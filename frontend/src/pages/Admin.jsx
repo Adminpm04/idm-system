@@ -4,6 +4,8 @@ import AdminUsers from './AdminUsers';
 import AdminRoles from './AdminRoles';
 import AdminPermissions from './AdminPermissions';
 import AdminAuditLogs from './AdminAuditLogs';
+import AdminLDAP from './AdminLDAP';
+import AdminADUsers from './AdminADUsers';
 import ExportButton from '../components/ExportButton';
 import { useLanguage } from '../App';
 
@@ -16,6 +18,8 @@ export default function Admin() {
     { id: 'systems', name: t('systems') },
     { id: 'roles', name: t('roles') },
     { id: 'permissions', name: t('permissions') },
+    { id: 'ldap', name: t('ldapConfig') },
+    { id: 'adusers', name: t('adUsers') },
     { id: 'audit', name: t('auditLog') },
   ];
 
@@ -52,6 +56,8 @@ export default function Admin() {
         {activeTab === 'systems' && <AdminSystems />}
         {activeTab === 'roles' && <AdminRoles />}
         {activeTab === 'permissions' && <AdminPermissions />}
+        {activeTab === 'ldap' && <AdminLDAP />}
+        {activeTab === 'adusers' && <AdminADUsers />}
         {activeTab === 'audit' && <AdminAuditLogs />}
       </div>
     </div>

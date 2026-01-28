@@ -145,6 +145,118 @@ class LDAPAuthService:
                 'message': f'LDAP connection failed: {str(e)}'
             }
 
+    def search_users(self, query: str = "", page: int = 1, limit: int = 20) -> Dict[str, Any]:
+        """Search users in Active Directory"""
+        try:
+            server = self._get_server()
+            conn = Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.timeout
+            )
+
+            # Build search filter
+            if query:
+                search_filter = f"(&(objectClass=user)(objectCategory=person)(|(sAMAccountName=*{query}*)(displayName=*{query}*)(mail=*{query}*)))"
+            else:
+                search_filter = "(&(objectClass=user)(objectCategory=person)(sAMAccountName=*))"
+
+            # Search with pagination
+            conn.search(
+                search_base=self.user_search_base,
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=[
+                    'sAMAccountName', 'mail', 'displayName', 'department',
+                    'title', 'telephoneNumber', 'distinguishedName', 'memberOf',
+                    'userAccountControl'
+                ],
+                paged_size=limit,
+                paged_cookie=None
+            )
+
+            users = []
+            for entry in conn.entries:
+                users.append({
+                    'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
+                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else None,
+                    'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else None,
+                    'department': str(entry.department) if hasattr(entry, 'department') and entry.department else None,
+                    'title': str(entry.title) if hasattr(entry, 'title') and entry.title else None,
+                    'telephoneNumber': str(entry.telephoneNumber) if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber else None,
+                    'distinguishedName': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') and entry.distinguishedName else None,
+                    'memberOf': [str(g) for g in entry.memberOf] if hasattr(entry, 'memberOf') and entry.memberOf else [],
+                })
+
+            conn.unbind()
+
+            # Simple pagination (skip entries based on page)
+            start = (page - 1) * limit
+            end = start + limit
+            paginated_users = users[start:end] if start < len(users) else []
+
+            return {
+                'users': paginated_users,
+                'total': len(users),
+                'page': page,
+                'limit': limit
+            }
+
+        except LDAPException as e:
+            return {
+                'users': [],
+                'total': 0,
+                'error': str(e)
+            }
+
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get user details by username from AD"""
+        try:
+            server = self._get_server()
+            conn = Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.timeout
+            )
+
+            search_filter = self.user_filter.format(username=username)
+            conn.search(
+                search_base=self.user_search_base,
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=[
+                    'sAMAccountName', 'mail', 'displayName', 'department',
+                    'title', 'telephoneNumber', 'distinguishedName', 'memberOf',
+                    'userAccountControl', 'whenCreated', 'whenChanged'
+                ]
+            )
+
+            if conn.entries:
+                entry = conn.entries[0]
+                user_data = {
+                    'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
+                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else None,
+                    'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else None,
+                    'department': str(entry.department) if hasattr(entry, 'department') and entry.department else None,
+                    'title': str(entry.title) if hasattr(entry, 'title') and entry.title else None,
+                    'telephoneNumber': str(entry.telephoneNumber) if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber else None,
+                    'distinguishedName': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') and entry.distinguishedName else None,
+                    'memberOf': [str(g) for g in entry.memberOf] if hasattr(entry, 'memberOf') and entry.memberOf else [],
+                }
+                conn.unbind()
+                return user_data
+
+            conn.unbind()
+            return None
+
+        except LDAPException as e:
+            print(f"LDAP search error: {e}")
+            return None
+
 
 # Singleton instance
 ldap_service = LDAPAuthService()
