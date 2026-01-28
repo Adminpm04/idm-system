@@ -156,11 +156,11 @@ async def login(
             detail="User account is inactive",
         )
 
-    # Check if AD user is disabled (in case they were disabled after last sync)
-    if user.ad_disabled:
+    # Check if AD user is disabled (only for LDAP users, not local users)
+    if user.auth_source == 'ldap' and user.ad_disabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account is disabled. Please contact IT support.",
+            detail="Your account is disabled in AD. Please contact IT support.",
         )
 
     # Update last login

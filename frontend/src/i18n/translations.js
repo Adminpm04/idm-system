@@ -378,6 +378,8 @@ export const translations = {
     manager: 'Руководитель',
     adDisabled: 'Заблокирован в AD',
     accountStatus: 'Статус аккаунта',
+    authSource: 'Источник',
+    local: 'Локальный',
   },
 
   en: {
@@ -759,5 +761,7 @@ export const translations = {
     manager: 'Manager',
     adDisabled: 'Disabled in AD',
     accountStatus: 'Account Status',
+    authSource: 'Source',
+    local: 'Local',
   }
 };

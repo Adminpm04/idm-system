@@ -69,7 +69,8 @@ export default function AdminUsers() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('email')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('username')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('roles')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('authSource')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('status')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('actions')}</th>
                 </tr>
               </thead>
@@ -83,10 +84,17 @@ export default function AdminUsers() {
                       {user.roles?.map(r => r.name).join(', ') || '-'}
                     </td>
                     <td className="px-6 py-4">
+                      {user.auth_source === 'ldap' ? (
+                        <span className="badge badge-submitted">AD</span>
+                      ) : (
+                        <span className="badge badge-secondary">{t('local')}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       {user.is_active ? (
                         <span className="badge badge-success">{t('active')}</span>
                       ) : (
-                        <span className="badge badge-secondary">{t('inactive')}</span>
+                        <span className="badge badge-rejected">{t('inactive')}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
