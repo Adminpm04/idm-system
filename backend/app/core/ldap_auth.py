@@ -1,8 +1,15 @@
 from ldap3 import Server, Connection, ALL, SUBTREE, Tls
 from ldap3.core.exceptions import LDAPException, LDAPBindError
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import ssl
+import uuid
+from datetime import datetime
 from app.core.config import settings
+
+
+# AD userAccountControl flags
+UAC_ACCOUNT_DISABLE = 0x0002
+UAC_NORMAL_ACCOUNT = 0x0200
 
 
 class LDAPAuthService:
@@ -93,19 +100,45 @@ class LDAPAuthService:
                 search_base=self.user_search_base,
                 search_filter=search_filter,
                 search_scope=SUBTREE,
-                attributes=['sAMAccountName', 'mail', 'displayName', 'department', 'title', 'memberOf']
+                attributes=[
+                    'sAMAccountName', 'mail', 'displayName', 'department', 'title',
+                    'memberOf', 'manager', 'telephoneNumber', 'objectGUID',
+                    'distinguishedName', 'userAccountControl'
+                ]
             )
 
             user_data = None
             if conn.entries:
                 entry = conn.entries[0]
+
+                # Check if account is disabled
+                uac = int(entry.userAccountControl.value) if hasattr(entry, 'userAccountControl') and entry.userAccountControl else 0
+                is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
+
+                # Get objectGUID as string
+                object_guid = None
+                if hasattr(entry, 'objectGUID') and entry.objectGUID:
+                    try:
+                        guid_bytes = entry.objectGUID.value
+                        if isinstance(guid_bytes, bytes):
+                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
+                        else:
+                            object_guid = str(guid_bytes)
+                    except Exception:
+                        pass
+
                 user_data = {
                     'username': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') else username,
                     'email': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else f"{username}@{domain_parts[0]}.{domain_parts[1]}.{domain_parts[2]}" if len(domain_parts) >= 3 else None,
                     'full_name': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else username,
                     'department': str(entry.department) if hasattr(entry, 'department') and entry.department else None,
                     'title': str(entry.title) if hasattr(entry, 'title') and entry.title else None,
+                    'phone': str(entry.telephoneNumber) if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber else None,
                     'groups': [str(g) for g in entry.memberOf] if hasattr(entry, 'memberOf') and entry.memberOf else [],
+                    'manager_dn': str(entry.manager) if hasattr(entry, 'manager') and entry.manager else None,
+                    'object_guid': object_guid,
+                    'distinguished_name': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') else None,
+                    'is_disabled': is_disabled,
                 }
 
             conn.unbind()
@@ -145,7 +178,7 @@ class LDAPAuthService:
                 'message': f'LDAP connection failed: {str(e)}'
             }
 
-    def search_users(self, query: str = "", page: int = 1, limit: int = 20) -> Dict[str, Any]:
+    def search_users(self, query: str = "", page: int = 1, limit: int = 20, include_disabled: bool = True) -> Dict[str, Any]:
         """Search users in Active Directory"""
         try:
             server = self._get_server()
@@ -171,14 +204,33 @@ class LDAPAuthService:
                 attributes=[
                     'sAMAccountName', 'mail', 'displayName', 'department',
                     'title', 'telephoneNumber', 'distinguishedName', 'memberOf',
-                    'userAccountControl'
+                    'userAccountControl', 'manager', 'objectGUID', 'whenChanged'
                 ],
-                paged_size=limit,
+                paged_size=1000,
                 paged_cookie=None
             )
 
             users = []
             for entry in conn.entries:
+                # Check if account is disabled
+                uac = int(entry.userAccountControl.value) if hasattr(entry, 'userAccountControl') and entry.userAccountControl else 0
+                is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
+
+                if not include_disabled and is_disabled:
+                    continue
+
+                # Get objectGUID
+                object_guid = None
+                if hasattr(entry, 'objectGUID') and entry.objectGUID:
+                    try:
+                        guid_bytes = entry.objectGUID.value
+                        if isinstance(guid_bytes, bytes):
+                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
+                        else:
+                            object_guid = str(guid_bytes)
+                    except Exception:
+                        pass
+
                 users.append({
                     'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
                     'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else None,
@@ -188,6 +240,10 @@ class LDAPAuthService:
                     'telephoneNumber': str(entry.telephoneNumber) if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber else None,
                     'distinguishedName': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') and entry.distinguishedName else None,
                     'memberOf': [str(g) for g in entry.memberOf] if hasattr(entry, 'memberOf') and entry.memberOf else [],
+                    'manager': str(entry.manager) if hasattr(entry, 'manager') and entry.manager else None,
+                    'objectGUID': object_guid,
+                    'isDisabled': is_disabled,
+                    'whenChanged': str(entry.whenChanged) if hasattr(entry, 'whenChanged') and entry.whenChanged else None,
                 })
 
             conn.unbind()
@@ -231,12 +287,29 @@ class LDAPAuthService:
                 attributes=[
                     'sAMAccountName', 'mail', 'displayName', 'department',
                     'title', 'telephoneNumber', 'distinguishedName', 'memberOf',
-                    'userAccountControl', 'whenCreated', 'whenChanged'
+                    'userAccountControl', 'whenCreated', 'whenChanged', 'manager', 'objectGUID'
                 ]
             )
 
             if conn.entries:
                 entry = conn.entries[0]
+
+                # Check if account is disabled
+                uac = int(entry.userAccountControl.value) if hasattr(entry, 'userAccountControl') and entry.userAccountControl else 0
+                is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
+
+                # Get objectGUID
+                object_guid = None
+                if hasattr(entry, 'objectGUID') and entry.objectGUID:
+                    try:
+                        guid_bytes = entry.objectGUID.value
+                        if isinstance(guid_bytes, bytes):
+                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
+                        else:
+                            object_guid = str(guid_bytes)
+                    except Exception:
+                        pass
+
                 user_data = {
                     'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
                     'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else None,
@@ -246,6 +319,9 @@ class LDAPAuthService:
                     'telephoneNumber': str(entry.telephoneNumber) if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber else None,
                     'distinguishedName': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') and entry.distinguishedName else None,
                     'memberOf': [str(g) for g in entry.memberOf] if hasattr(entry, 'memberOf') and entry.memberOf else [],
+                    'manager': str(entry.manager) if hasattr(entry, 'manager') and entry.manager else None,
+                    'objectGUID': object_guid,
+                    'isDisabled': is_disabled,
                 }
                 conn.unbind()
                 return user_data
@@ -256,6 +332,108 @@ class LDAPAuthService:
         except LDAPException as e:
             print(f"LDAP search error: {e}")
             return None
+
+    def get_user_by_dn(self, dn: str) -> Optional[Dict[str, Any]]:
+        """Get user details by distinguished name from AD"""
+        try:
+            server = self._get_server()
+            conn = Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.timeout
+            )
+
+            conn.search(
+                search_base=dn,
+                search_filter="(objectClass=*)",
+                search_scope='BASE',
+                attributes=['sAMAccountName', 'mail', 'displayName', 'department', 'title']
+            )
+
+            if conn.entries:
+                entry = conn.entries[0]
+                user_data = {
+                    'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
+                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else None,
+                    'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else None,
+                    'department': str(entry.department) if hasattr(entry, 'department') and entry.department else None,
+                    'title': str(entry.title) if hasattr(entry, 'title') and entry.title else None,
+                }
+                conn.unbind()
+                return user_data
+
+            conn.unbind()
+            return None
+
+        except LDAPException as e:
+            print(f"LDAP search by DN error: {e}")
+            return None
+
+    def get_all_users_for_sync(self) -> List[Dict[str, Any]]:
+        """Get all users from AD for full sync"""
+        try:
+            server = self._get_server()
+            conn = Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.timeout
+            )
+
+            search_filter = "(&(objectClass=user)(objectCategory=person)(sAMAccountName=*))"
+
+            conn.search(
+                search_base=self.user_search_base,
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=[
+                    'sAMAccountName', 'mail', 'displayName', 'department',
+                    'title', 'telephoneNumber', 'distinguishedName', 'memberOf',
+                    'userAccountControl', 'manager', 'objectGUID'
+                ],
+                paged_size=1000
+            )
+
+            users = []
+            for entry in conn.entries:
+                # Check if account is disabled
+                uac = int(entry.userAccountControl.value) if hasattr(entry, 'userAccountControl') and entry.userAccountControl else 0
+                is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
+
+                # Get objectGUID
+                object_guid = None
+                if hasattr(entry, 'objectGUID') and entry.objectGUID:
+                    try:
+                        guid_bytes = entry.objectGUID.value
+                        if isinstance(guid_bytes, bytes):
+                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
+                        else:
+                            object_guid = str(guid_bytes)
+                    except Exception:
+                        pass
+
+                users.append({
+                    'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
+                    'mail': str(entry.mail) if hasattr(entry, 'mail') and entry.mail else None,
+                    'displayName': str(entry.displayName) if hasattr(entry, 'displayName') and entry.displayName else None,
+                    'department': str(entry.department) if hasattr(entry, 'department') and entry.department else None,
+                    'title': str(entry.title) if hasattr(entry, 'title') and entry.title else None,
+                    'telephoneNumber': str(entry.telephoneNumber) if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber else None,
+                    'distinguishedName': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') and entry.distinguishedName else None,
+                    'manager': str(entry.manager) if hasattr(entry, 'manager') and entry.manager else None,
+                    'objectGUID': object_guid,
+                    'isDisabled': is_disabled,
+                })
+
+            conn.unbind()
+            return users
+
+        except LDAPException as e:
+            print(f"LDAP sync error: {e}")
+            return []
 
 
 # Singleton instance

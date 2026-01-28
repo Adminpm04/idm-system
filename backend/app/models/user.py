@@ -21,7 +21,7 @@ role_permissions = Table(
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(100), unique=True, index=True, nullable=False)
@@ -31,8 +31,17 @@ class User(Base):
     is_superuser = Column(Boolean, default=False, nullable=False)
     department = Column(String(255), nullable=True)
     position = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
     manager_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     auth_source = Column(String(20), default='local', nullable=False)  # 'local' or 'ldap'
+
+    # AD-specific fields
+    ad_guid = Column(String(36), unique=True, nullable=True, index=True)  # AD objectGUID
+    ad_dn = Column(String(500), nullable=True)  # AD distinguishedName
+    ad_disabled = Column(Boolean, default=False, nullable=False)  # Account disabled in AD
+    ad_manager_dn = Column(String(500), nullable=True)  # Manager's DN in AD (for linking)
+    last_ad_sync = Column(DateTime(timezone=True), nullable=True)  # Last sync from AD
+    termination_date = Column(DateTime(timezone=True), nullable=True)  # When user was terminated
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

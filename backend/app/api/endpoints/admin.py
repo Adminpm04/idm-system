@@ -353,6 +353,7 @@ async def sync_ldap_user(
     """Sync a single user from AD to local database"""
     from app.core.ldap_auth import ldap_service
     from app.core.config import settings
+    from datetime import datetime, timezone
 
     if not settings.LDAP_ENABLED:
         raise HTTPException(
@@ -384,25 +385,46 @@ async def sync_ldap_user(
         existing_user.full_name = ad_user.get('displayName') or existing_user.full_name
         existing_user.department = ad_user.get('department')
         existing_user.position = ad_user.get('title')
+        existing_user.phone = ad_user.get('telephoneNumber')
         existing_user.auth_source = 'ldap'
+        existing_user.ad_guid = ad_user.get('objectGUID')
+        existing_user.ad_dn = ad_user.get('distinguishedName')
+        existing_user.ad_manager_dn = ad_user.get('manager')
+        existing_user.ad_disabled = ad_user.get('isDisabled', False)
+        existing_user.last_ad_sync = datetime.now(timezone.utc)
+
+        # Handle disabled users
+        if ad_user.get('isDisabled'):
+            existing_user.is_active = False
+            existing_user.termination_date = datetime.now(timezone.utc)
+
         db.commit()
-        return {'success': True, 'message': 'User updated', 'user_id': existing_user.id}
+        return {'success': True, 'message': 'User updated', 'user_id': existing_user.id, 'disabled': ad_user.get('isDisabled', False)}
     else:
         # Create new user
+        from app.core.security import get_password_hash
+        import secrets
+
         new_user = User(
             username=username,
             email=ad_user.get('mail') or f"{username}@unknown.local",
             full_name=ad_user.get('displayName') or username,
             department=ad_user.get('department'),
             position=ad_user.get('title'),
+            phone=ad_user.get('telephoneNumber'),
             auth_source='ldap',
-            hashed_password='',  # No password for LDAP users
-            is_active=True
+            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+            is_active=not ad_user.get('isDisabled', False),
+            ad_guid=ad_user.get('objectGUID'),
+            ad_dn=ad_user.get('distinguishedName'),
+            ad_manager_dn=ad_user.get('manager'),
+            ad_disabled=ad_user.get('isDisabled', False),
+            last_ad_sync=datetime.now(timezone.utc)
         )
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        return {'success': True, 'message': 'User created', 'user_id': new_user.id}
+        return {'success': True, 'message': 'User created', 'user_id': new_user.id, 'disabled': ad_user.get('isDisabled', False)}
 
 
 @router.post("/ldap/sync-all")
@@ -410,9 +432,12 @@ async def sync_all_ldap_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser)
 ):
-    """Sync all AD users to local database"""
+    """Sync all AD users to local database with manager linking"""
     from app.core.ldap_auth import ldap_service
     from app.core.config import settings
+    from app.core.security import get_password_hash
+    from datetime import datetime, timezone
+    import secrets
 
     if not settings.LDAP_ENABLED:
         raise HTTPException(
@@ -420,25 +445,35 @@ async def sync_all_ldap_users(
             detail="LDAP is not enabled"
         )
 
-    # Get all users from AD (up to 1000)
-    result = ldap_service.search_users("", 1, 1000)
+    # Get all users from AD
+    ad_users = ldap_service.get_all_users_for_sync()
 
-    if 'error' in result:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result['error']
-        )
+    if not ad_users:
+        return {
+            'success': True,
+            'synced': 0,
+            'created': 0,
+            'updated': 0,
+            'disabled': 0,
+            'total': 0,
+            'errors': []
+        }
 
     synced_count = 0
+    created_count = 0
+    updated_count = 0
+    disabled_count = 0
     errors = []
 
-    for ad_user in result.get('users', []):
+    # First pass: Create/update all users
+    for ad_user in ad_users:
         username = ad_user.get('sAMAccountName')
         if not username:
             continue
 
         try:
             existing_user = db.query(User).filter(User.username == username).first()
+            is_disabled = ad_user.get('isDisabled', False)
 
             if existing_user:
                 # Update existing user
@@ -446,7 +481,24 @@ async def sync_all_ldap_users(
                 existing_user.full_name = ad_user.get('displayName') or existing_user.full_name
                 existing_user.department = ad_user.get('department')
                 existing_user.position = ad_user.get('title')
+                existing_user.phone = ad_user.get('telephoneNumber')
                 existing_user.auth_source = 'ldap'
+                existing_user.ad_guid = ad_user.get('objectGUID')
+                existing_user.ad_dn = ad_user.get('distinguishedName')
+                existing_user.ad_manager_dn = ad_user.get('manager')
+                existing_user.ad_disabled = is_disabled
+                existing_user.last_ad_sync = datetime.now(timezone.utc)
+
+                # Handle disabled/terminated users
+                if is_disabled and existing_user.is_active:
+                    existing_user.is_active = False
+                    existing_user.termination_date = datetime.now(timezone.utc)
+                    disabled_count += 1
+                elif not is_disabled and not existing_user.is_active and not existing_user.termination_date:
+                    # Re-enable if was disabled in AD but now enabled
+                    existing_user.is_active = True
+
+                updated_count += 1
             else:
                 # Create new user
                 new_user = User(
@@ -455,11 +507,21 @@ async def sync_all_ldap_users(
                     full_name=ad_user.get('displayName') or username,
                     department=ad_user.get('department'),
                     position=ad_user.get('title'),
+                    phone=ad_user.get('telephoneNumber'),
                     auth_source='ldap',
-                    hashed_password='',
-                    is_active=True
+                    hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+                    is_active=not is_disabled,
+                    ad_guid=ad_user.get('objectGUID'),
+                    ad_dn=ad_user.get('distinguishedName'),
+                    ad_manager_dn=ad_user.get('manager'),
+                    ad_disabled=is_disabled,
+                    last_ad_sync=datetime.now(timezone.utc)
                 )
                 db.add(new_user)
+                created_count += 1
+
+                if is_disabled:
+                    disabled_count += 1
 
             synced_count += 1
 
@@ -468,9 +530,106 @@ async def sync_all_ldap_users(
 
     db.commit()
 
+    # Second pass: Link managers
+    manager_linked = 0
+    for ad_user in ad_users:
+        username = ad_user.get('sAMAccountName')
+        manager_dn = ad_user.get('manager')
+
+        if not username or not manager_dn:
+            continue
+
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            if user and not user.manager_id:
+                # Find manager by DN
+                manager = db.query(User).filter(User.ad_dn == manager_dn).first()
+                if manager:
+                    user.manager_id = manager.id
+                    manager_linked += 1
+
+        except Exception as e:
+            pass  # Skip manager linking errors
+
+    db.commit()
+
     return {
         'success': True,
         'synced': synced_count,
-        'total': result.get('total', 0),
-        'errors': errors[:10]  # Return only first 10 errors
+        'created': created_count,
+        'updated': updated_count,
+        'disabled': disabled_count,
+        'managers_linked': manager_linked,
+        'total': len(ad_users),
+        'errors': errors[:10]
+    }
+
+
+@router.post("/ldap/link-managers")
+async def link_managers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Link managers for all users based on AD manager DN"""
+    from app.core.config import settings
+
+    if not settings.LDAP_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LDAP is not enabled"
+        )
+
+    # Get all users with manager DN but no manager linked
+    users_with_manager_dn = db.query(User).filter(
+        User.ad_manager_dn.isnot(None),
+        User.manager_id.is_(None)
+    ).all()
+
+    linked_count = 0
+    errors = []
+
+    for user in users_with_manager_dn:
+        try:
+            manager = db.query(User).filter(User.ad_dn == user.ad_manager_dn).first()
+            if manager:
+                user.manager_id = manager.id
+                linked_count += 1
+        except Exception as e:
+            errors.append(f"{user.username}: {str(e)}")
+
+    db.commit()
+
+    return {
+        'success': True,
+        'linked': linked_count,
+        'total_checked': len(users_with_manager_dn),
+        'errors': errors[:10]
+    }
+
+
+@router.get("/ldap/sync-status")
+async def get_sync_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Get AD sync status statistics"""
+    from app.core.config import settings
+    from sqlalchemy import func
+
+    total_users = db.query(User).count()
+    ldap_users = db.query(User).filter(User.auth_source == 'ldap').count()
+    disabled_users = db.query(User).filter(User.ad_disabled == True).count()
+    users_with_manager = db.query(User).filter(User.manager_id.isnot(None)).count()
+
+    # Get last sync time
+    last_sync = db.query(func.max(User.last_ad_sync)).scalar()
+
+    return {
+        'ldap_enabled': settings.LDAP_ENABLED,
+        'total_users': total_users,
+        'ldap_users': ldap_users,
+        'local_users': total_users - ldap_users,
+        'disabled_users': disabled_users,
+        'users_with_manager': users_with_manager,
+        'last_sync': last_sync.isoformat() if last_sync else None
     }

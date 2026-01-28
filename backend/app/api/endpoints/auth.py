@@ -12,6 +12,61 @@ from app.core.ldap_auth import ldap_service
 router = APIRouter()
 
 
+def find_manager_by_dn(db: Session, manager_dn: str) -> User:
+    """Find manager user by AD distinguished name"""
+    if not manager_dn:
+        return None
+
+    # First try to find by ad_dn
+    manager = db.query(User).filter(User.ad_dn == manager_dn).first()
+    if manager:
+        return manager
+
+    # If not found, try to get manager's username from AD and find by username
+    manager_data = ldap_service.get_user_by_dn(manager_dn)
+    if manager_data and manager_data.get('sAMAccountName'):
+        manager = db.query(User).filter(User.username == manager_data['sAMAccountName']).first()
+        return manager
+
+    return None
+
+
+def sync_user_from_ad(db: Session, user: User, ad_data: dict) -> User:
+    """Sync user data from Active Directory"""
+    # Update basic fields
+    if ad_data.get('email'):
+        user.email = ad_data['email']
+    if ad_data.get('full_name'):
+        user.full_name = ad_data['full_name']
+    if ad_data.get('department'):
+        user.department = ad_data['department']
+    if ad_data.get('title'):
+        user.position = ad_data['title']
+    if ad_data.get('phone'):
+        user.phone = ad_data['phone']
+
+    # Update AD-specific fields
+    user.auth_source = 'ldap'
+    if ad_data.get('object_guid'):
+        user.ad_guid = ad_data['object_guid']
+    if ad_data.get('distinguished_name'):
+        user.ad_dn = ad_data['distinguished_name']
+    if ad_data.get('manager_dn'):
+        user.ad_manager_dn = ad_data['manager_dn']
+        # Try to link manager
+        manager = find_manager_by_dn(db, ad_data['manager_dn'])
+        if manager:
+            user.manager_id = manager.id
+
+    # Update disabled status
+    user.ad_disabled = ad_data.get('is_disabled', False)
+    user.last_ad_sync = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def create_user_from_ad(db: Session, ad_data: dict) -> User:
     """Create a new user from Active Directory data"""
     # Generate a random password hash (user will auth via AD, not local password)
@@ -25,13 +80,27 @@ def create_user_from_ad(db: Session, ad_data: dict) -> User:
         hashed_password=get_password_hash(random_password),
         department=ad_data.get('department'),
         position=ad_data.get('title'),
+        phone=ad_data.get('phone'),
         is_active=True,
         is_superuser=False,
-        auth_source='ldap'
+        auth_source='ldap',
+        ad_guid=ad_data.get('object_guid'),
+        ad_dn=ad_data.get('distinguished_name'),
+        ad_manager_dn=ad_data.get('manager_dn'),
+        ad_disabled=ad_data.get('is_disabled', False),
+        last_ad_sync=datetime.now(timezone.utc)
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Try to link manager after user is created
+    if ad_data.get('manager_dn'):
+        manager = find_manager_by_dn(db, ad_data['manager_dn'])
+        if manager:
+            user.manager_id = manager.id
+            db.commit()
+
     return user
 
 
@@ -48,6 +117,13 @@ async def login(
     if settings.LDAP_ENABLED:
         ad_data = ldap_service.authenticate(login_data.username, login_data.password)
         if ad_data:
+            # Check if account is disabled in AD
+            if ad_data.get('is_disabled'):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your account is disabled in Active Directory. Please contact IT support.",
+                )
+
             ad_authenticated = True
             # Check if user exists in local DB
             user = db.query(User).filter(User.username == ad_data['username']).first()
@@ -56,17 +132,8 @@ async def login(
                 # Auto-create user from AD data
                 user = create_user_from_ad(db, ad_data)
             else:
-                # Update user info from AD
-                if ad_data.get('email'):
-                    user.email = ad_data['email']
-                if ad_data.get('full_name'):
-                    user.full_name = ad_data['full_name']
-                if ad_data.get('department'):
-                    user.department = ad_data['department']
-                if ad_data.get('title'):
-                    user.position = ad_data['title']
-                user.auth_source = 'ldap'
-                db.commit()
+                # Sync user info from AD (updates all fields including manager)
+                user = sync_user_from_ad(db, user, ad_data)
 
     # If AD auth failed, try local authentication (fallback for admin)
     if not ad_authenticated:
@@ -87,6 +154,13 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive",
+        )
+
+    # Check if AD user is disabled (in case they were disabled after last sync)
+    if user.ad_disabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is disabled. Please contact IT support.",
         )
 
     # Update last login

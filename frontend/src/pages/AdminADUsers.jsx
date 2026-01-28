@@ -10,11 +10,27 @@ export default function AdminADUsers() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState(null);
+  const [syncStatus, setSyncStatus] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0
   });
+
+  const fetchSyncStatus = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('/api/admin/ldap/sync-status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStatus(data);
+      }
+    } catch (error) {
+      console.error('Error fetching sync status:', error);
+    }
+  };
 
   const searchUsers = async (query = '', page = 1) => {
     setSearching(true);
@@ -48,6 +64,7 @@ export default function AdminADUsers() {
 
   useEffect(() => {
     searchUsers();
+    fetchSyncStatus();
   }, []);
 
   const handleSearch = (e) => {
@@ -98,9 +115,37 @@ export default function AdminADUsers() {
         const data = await response.json();
         setMessage({
           type: 'success',
-          text: `${t('syncComplete')}: ${data.synced} ${t('users')}`
+          text: `${t('syncComplete')}: ${t('created')} ${data.created}, ${t('updated')} ${data.updated}, ${t('disabled')} ${data.disabled}, ${t('managersLinked')} ${data.managers_linked}`
         });
         searchUsers(searchQuery, pagination.page);
+        fetchSyncStatus();
+      } else {
+        const error = await response.json();
+        setMessage({ type: 'error', text: error.detail || t('syncFailed') });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: t('syncFailed') });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleLinkManagers = async () => {
+    setSyncing(true);
+    setMessage(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('/api/admin/ldap/link-managers', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessage({
+          type: 'success',
+          text: `${t('managersLinked')}: ${data.linked}`
+        });
+        fetchSyncStatus();
       } else {
         const error = await response.json();
         setMessage({ type: 'error', text: error.detail || t('syncFailed') });
@@ -130,6 +175,38 @@ export default function AdminADUsers() {
         </div>
       )}
 
+      {/* Sync Status */}
+      {syncStatus && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="card p-4 text-center">
+            <div className="text-2xl font-bold text-primary">{syncStatus.total_users}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('totalUsers')}</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-2xl font-bold text-blue-500">{syncStatus.ldap_users}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('adUsers')}</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-2xl font-bold text-gray-500">{syncStatus.local_users}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('localUsers')}</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-2xl font-bold text-red-500">{syncStatus.disabled_users}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('disabledUsers')}</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-2xl font-bold text-green-500">{syncStatus.users_with_manager}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('withManager')}</div>
+          </div>
+          <div className="card p-4 text-center">
+            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {syncStatus.last_sync ? new Date(syncStatus.last_sync).toLocaleString() : '-'}
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{t('lastSync')}</div>
+          </div>
+        </div>
+      )}
+
       {/* Search and Actions */}
       <div className="card">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -151,13 +228,23 @@ export default function AdminADUsers() {
             </button>
           </form>
 
-          <button
-            onClick={handleSyncAll}
-            disabled={syncing}
-            className="btn btn-secondary"
-          >
-            {syncing ? t('syncing') : t('syncAllUsers')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleLinkManagers}
+              disabled={syncing}
+              className="btn btn-outline"
+              title={t('linkManagersDesc')}
+            >
+              {t('linkManagers')}
+            </button>
+            <button
+              onClick={handleSyncAll}
+              disabled={syncing}
+              className="btn btn-secondary"
+            >
+              {syncing ? t('syncing') : t('syncAllUsers')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -180,6 +267,9 @@ export default function AdminADUsers() {
                   {t('department')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('manager')}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {t('status')}
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -190,7 +280,7 @@ export default function AdminADUsers() {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     {t('noADUsersFound')}
                   </td>
                 </tr>
@@ -218,12 +308,24 @@ export default function AdminADUsers() {
                     <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">
                       {user.department || '-'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300 text-sm">
+                      {user.manager ? (
+                        <span title={user.manager}>
+                          {user.manager.match(/CN=([^,]+)/)?.[1] || '-'}
+                        </span>
+                      ) : '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {user.synced ? (
-                        <span className="badge badge-success">{t('synced')}</span>
-                      ) : (
-                        <span className="badge badge-secondary">{t('notSynced')}</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {user.isDisabled && (
+                          <span className="badge badge-rejected">{t('adDisabled')}</span>
+                        )}
+                        {user.synced ? (
+                          <span className="badge badge-success">{t('synced')}</span>
+                        ) : (
+                          <span className="badge badge-secondary">{t('notSynced')}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <button
@@ -332,6 +434,24 @@ export default function AdminADUsers() {
                 <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <p className="text-sm text-gray-500 dark:text-gray-400">{t('phone')}</p>
                   <p className="font-medium dark:text-gray-200">{selectedUser.telephoneNumber || '-'}</p>
+                </div>
+
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('manager')}</p>
+                  <p className="font-medium dark:text-gray-200">
+                    {selectedUser.manager ? selectedUser.manager.match(/CN=([^,]+)/)?.[1] || '-' : '-'}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('accountStatus')}</p>
+                  <p className="font-medium">
+                    {selectedUser.isDisabled ? (
+                      <span className="text-red-500">{t('adDisabled')}</span>
+                    ) : (
+                      <span className="text-green-500">{t('active')}</span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg md:col-span-2">
