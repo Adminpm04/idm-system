@@ -189,6 +189,23 @@ export const CheckIcon = ({ size = 24, className = '' }) => (
   </Icon3DWrapper>
 );
 
+// Yellow Checkmark icon - 3D style (secondary/brand color)
+export const YellowCheckIcon = ({ size = 24, className = '' }) => (
+  <Icon3DWrapper size={size} className={className} gradient={
+    <>
+      <linearGradient id="yellowCheckGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FCD34D" />
+        <stop offset="100%" stopColor="#F9BF3F" />
+      </linearGradient>
+    </>
+  }>
+    <circle cx="12" cy="12" r="10" fill="url(#yellowCheckGrad)" />
+    <circle cx="12" cy="12" r="10" fill="none" stroke="#D97706" strokeWidth="1" />
+    <path d="M7 12L10.5 15.5L17 9" stroke="#16306C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <ellipse cx="8" cy="8" rx="3" ry="2" fill="white" opacity="0.3" transform="rotate(-30 8 8)" />
+  </Icon3DWrapper>
+);
+
 // Cross/Reject icon - 3D style
 export const CrossIcon = ({ size = 24, className = '' }) => (
   <Icon3DWrapper size={size} className={className} gradient={
@@ -396,6 +413,7 @@ export const Icons = {
   Stats: StatsIcon,
   Search: SearchIcon,
   Check: CheckIcon,
+  YellowCheck: YellowCheckIcon,
   Cross: CrossIcon,
   Pending: PendingIcon,
   Link: LinkIcon,

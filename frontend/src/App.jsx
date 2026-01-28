@@ -13,7 +13,7 @@ import RequestDetailPage from './pages/RequestDetail';
 import MyApprovalsPage from './pages/MyApprovals';
 import GlobalSearch from './components/GlobalSearch';
 import MemoryGame from './components/MemoryGame';
-import { CheckIcon } from './components/Icons';
+import { YellowCheckIcon } from './components/Icons';
 
 // Language Context
 const LanguageContext = createContext(null);
@@ -645,11 +645,11 @@ function Dashboard() {
         <div className="card">
           <h2 className="text-2xl font-semibold mb-4 dark:text-gray-100">{t('welcomeIDM')}</h2>
           <ul className="space-y-3 text-gray-700 dark:text-gray-300">
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature1')}</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature2')}</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature3')}</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature4')}</li>
-            <li className="flex items-center"><CheckIcon size={20} className="mr-3" />{t('feature5')}</li>
+            <li className="flex items-center"><YellowCheckIcon size={20} className="mr-3" />{t('feature1')}</li>
+            <li className="flex items-center"><YellowCheckIcon size={20} className="mr-3" />{t('feature2')}</li>
+            <li className="flex items-center"><YellowCheckIcon size={20} className="mr-3" />{t('feature3')}</li>
+            <li className="flex items-center"><YellowCheckIcon size={20} className="mr-3" />{t('feature4')}</li>
+            <li className="flex items-center"><YellowCheckIcon size={20} className="mr-3" />{t('feature5')}</li>
           </ul>
         </div>
       </div>
