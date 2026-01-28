@@ -218,8 +218,13 @@ function RoleModal({ role, permissions, onClose, onSave }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await adminAPI.roles.create(formData);
-      alert(role ? t('roleUpdated') : t('roleCreated'));
+      if (role) {
+        await adminAPI.roles.update(role.id, formData);
+        alert(t('roleUpdated'));
+      } else {
+        await adminAPI.roles.create(formData);
+        alert(t('roleCreated'));
+      }
       onSave();
     } catch (error) {
       alert(t('error') + ': ' + (error.response?.data?.detail || error.message));

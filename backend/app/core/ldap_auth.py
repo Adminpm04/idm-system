@@ -3,7 +3,10 @@ from ldap3.core.exceptions import LDAPException, LDAPBindError
 from typing import Optional, Dict, Any, List
 import ssl
 import uuid
+import hashlib
+import threading
 from datetime import datetime
+from cachetools import TTLCache
 from app.core.config import settings
 
 
@@ -11,9 +14,123 @@ from app.core.config import settings
 UAC_ACCOUNT_DISABLE = 0x0002
 UAC_NORMAL_ACCOUNT = 0x0200
 
+# Cache configuration
+CACHE_TTL = 300  # 5 minutes
+CACHE_MAXSIZE = 500  # Maximum cached items
+
+
+def normalize_guid(guid_value) -> Optional[str]:
+    """Convert objectGUID to a normalized 36-character UUID string"""
+    if guid_value is None:
+        return None
+    try:
+        if isinstance(guid_value, bytes):
+            # Convert bytes to UUID
+            return str(uuid.UUID(bytes_le=guid_value))
+        else:
+            # String - strip curly braces if present
+            guid_str = str(guid_value).strip('{}')
+            # Validate it's a proper UUID format
+            return str(uuid.UUID(guid_str))
+    except Exception:
+        return None
+
+
+class LDAPCache:
+    """Thread-safe cache for LDAP queries"""
+
+    def __init__(self, ttl: int = CACHE_TTL, maxsize: int = CACHE_MAXSIZE):
+        self._search_cache = TTLCache(maxsize=maxsize, ttl=ttl)
+        self._user_cache = TTLCache(maxsize=maxsize, ttl=ttl)
+        self._all_users_cache = TTLCache(maxsize=10, ttl=ttl)
+        self._lock = threading.RLock()
+        self._stats = {
+            'hits': 0,
+            'misses': 0,
+            'search_hits': 0,
+            'search_misses': 0,
+            'user_hits': 0,
+            'user_misses': 0,
+        }
+
+    def _make_search_key(self, query: str, page: int, limit: int, include_disabled: bool) -> str:
+        """Create a cache key for search queries"""
+        return hashlib.md5(f"{query}:{page}:{limit}:{include_disabled}".encode()).hexdigest()
+
+    def get_search(self, query: str, page: int, limit: int, include_disabled: bool) -> Optional[Dict]:
+        """Get cached search results"""
+        key = self._make_search_key(query, page, limit, include_disabled)
+        with self._lock:
+            result = self._search_cache.get(key)
+            if result is not None:
+                self._stats['hits'] += 1
+                self._stats['search_hits'] += 1
+            else:
+                self._stats['misses'] += 1
+                self._stats['search_misses'] += 1
+            return result
+
+    def set_search(self, query: str, page: int, limit: int, include_disabled: bool, result: Dict):
+        """Cache search results"""
+        key = self._make_search_key(query, page, limit, include_disabled)
+        with self._lock:
+            self._search_cache[key] = result
+
+    def get_user(self, username: str) -> Optional[Dict]:
+        """Get cached user data"""
+        with self._lock:
+            result = self._user_cache.get(username.lower())
+            if result is not None:
+                self._stats['hits'] += 1
+                self._stats['user_hits'] += 1
+            else:
+                self._stats['misses'] += 1
+                self._stats['user_misses'] += 1
+            return result
+
+    def set_user(self, username: str, data: Dict):
+        """Cache user data"""
+        with self._lock:
+            self._user_cache[username.lower()] = data
+
+    def get_all_users(self) -> Optional[List]:
+        """Get cached all users list"""
+        with self._lock:
+            return self._all_users_cache.get('all_users')
+
+    def set_all_users(self, users: List):
+        """Cache all users list"""
+        with self._lock:
+            self._all_users_cache['all_users'] = users
+
+    def clear(self):
+        """Clear all caches"""
+        with self._lock:
+            self._search_cache.clear()
+            self._user_cache.clear()
+            self._all_users_cache.clear()
+
+    def clear_user(self, username: str):
+        """Clear specific user from cache"""
+        with self._lock:
+            self._user_cache.pop(username.lower(), None)
+
+    def get_stats(self) -> Dict:
+        """Get cache statistics"""
+        with self._lock:
+            total = self._stats['hits'] + self._stats['misses']
+            hit_rate = (self._stats['hits'] / total * 100) if total > 0 else 0
+            return {
+                **self._stats,
+                'hit_rate': round(hit_rate, 2),
+                'search_cache_size': len(self._search_cache),
+                'user_cache_size': len(self._user_cache),
+                'total_requests': total,
+            }
+
 
 class LDAPAuthService:
-    """Service for authenticating users against Active Directory"""
+    """Service for authenticating users against Active Directory with caching"""
 
     def __init__(self):
         self.server_url = settings.LDAP_SERVER
@@ -24,6 +141,7 @@ class LDAPAuthService:
         self.user_filter = settings.LDAP_USER_FILTER
         self.use_ssl = settings.LDAP_USE_SSL
         self.timeout = settings.LDAP_TIMEOUT
+        self.cache = LDAPCache()
 
     def _get_server(self) -> Server:
         """Create LDAP server connection object"""
@@ -68,6 +186,7 @@ class LDAPAuthService:
         """
         Authenticate user against Active Directory.
         Returns user attributes if successful, None if failed.
+        Note: Authentication is never cached for security reasons.
         """
         if not settings.LDAP_ENABLED:
             return None
@@ -116,16 +235,7 @@ class LDAPAuthService:
                 is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
 
                 # Get objectGUID as string
-                object_guid = None
-                if hasattr(entry, 'objectGUID') and entry.objectGUID:
-                    try:
-                        guid_bytes = entry.objectGUID.value
-                        if isinstance(guid_bytes, bytes):
-                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
-                        else:
-                            object_guid = str(guid_bytes)
-                    except Exception:
-                        pass
+                object_guid = normalize_guid(entry.objectGUID.value) if hasattr(entry, 'objectGUID') and entry.objectGUID else None
 
                 user_data = {
                     'username': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') else username,
@@ -140,6 +250,9 @@ class LDAPAuthService:
                     'distinguished_name': str(entry.distinguishedName) if hasattr(entry, 'distinguishedName') else None,
                     'is_disabled': is_disabled,
                 }
+
+                # Update user cache after successful auth
+                self.cache.set_user(username, user_data)
 
             conn.unbind()
             return user_data
@@ -179,7 +292,14 @@ class LDAPAuthService:
             }
 
     def search_users(self, query: str = "", page: int = 1, limit: int = 20, include_disabled: bool = True) -> Dict[str, Any]:
-        """Search users in Active Directory"""
+        """Search users in Active Directory with caching"""
+
+        # Check cache first
+        cached = self.cache.get_search(query, page, limit, include_disabled)
+        if cached is not None:
+            cached['from_cache'] = True
+            return cached
+
         try:
             server = self._get_server()
             conn = Connection(
@@ -220,16 +340,7 @@ class LDAPAuthService:
                     continue
 
                 # Get objectGUID
-                object_guid = None
-                if hasattr(entry, 'objectGUID') and entry.objectGUID:
-                    try:
-                        guid_bytes = entry.objectGUID.value
-                        if isinstance(guid_bytes, bytes):
-                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
-                        else:
-                            object_guid = str(guid_bytes)
-                    except Exception:
-                        pass
+                object_guid = normalize_guid(entry.objectGUID.value) if hasattr(entry, 'objectGUID') and entry.objectGUID else None
 
                 users.append({
                     'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
@@ -253,22 +364,35 @@ class LDAPAuthService:
             end = start + limit
             paginated_users = users[start:end] if start < len(users) else []
 
-            return {
+            result = {
                 'users': paginated_users,
                 'total': len(users),
                 'page': page,
-                'limit': limit
+                'limit': limit,
+                'from_cache': False
             }
+
+            # Cache the result
+            self.cache.set_search(query, page, limit, include_disabled, result)
+
+            return result
 
         except LDAPException as e:
             return {
                 'users': [],
                 'total': 0,
-                'error': str(e)
+                'error': str(e),
+                'from_cache': False
             }
 
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """Get user details by username from AD"""
+        """Get user details by username from AD with caching"""
+
+        # Check cache first
+        cached = self.cache.get_user(username)
+        if cached is not None:
+            return cached
+
         try:
             server = self._get_server()
             conn = Connection(
@@ -299,16 +423,7 @@ class LDAPAuthService:
                 is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
 
                 # Get objectGUID
-                object_guid = None
-                if hasattr(entry, 'objectGUID') and entry.objectGUID:
-                    try:
-                        guid_bytes = entry.objectGUID.value
-                        if isinstance(guid_bytes, bytes):
-                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
-                        else:
-                            object_guid = str(guid_bytes)
-                    except Exception:
-                        pass
+                object_guid = normalize_guid(entry.objectGUID.value) if hasattr(entry, 'objectGUID') and entry.objectGUID else None
 
                 user_data = {
                     'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
@@ -324,6 +439,10 @@ class LDAPAuthService:
                     'isDisabled': is_disabled,
                 }
                 conn.unbind()
+
+                # Cache the user data
+                self.cache.set_user(username, user_data)
+
                 return user_data
 
             conn.unbind()
@@ -372,7 +491,13 @@ class LDAPAuthService:
             return None
 
     def get_all_users_for_sync(self) -> List[Dict[str, Any]]:
-        """Get all users from AD for full sync"""
+        """Get all users from AD for full sync with caching"""
+
+        # Check cache first
+        cached = self.cache.get_all_users()
+        if cached is not None:
+            return cached
+
         try:
             server = self._get_server()
             conn = Connection(
@@ -404,16 +529,7 @@ class LDAPAuthService:
                 is_disabled = bool(uac & UAC_ACCOUNT_DISABLE)
 
                 # Get objectGUID
-                object_guid = None
-                if hasattr(entry, 'objectGUID') and entry.objectGUID:
-                    try:
-                        guid_bytes = entry.objectGUID.value
-                        if isinstance(guid_bytes, bytes):
-                            object_guid = str(uuid.UUID(bytes_le=guid_bytes))
-                        else:
-                            object_guid = str(guid_bytes)
-                    except Exception:
-                        pass
+                object_guid = normalize_guid(entry.objectGUID.value) if hasattr(entry, 'objectGUID') and entry.objectGUID else None
 
                 users.append({
                     'sAMAccountName': str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') and entry.sAMAccountName else None,
@@ -429,11 +545,23 @@ class LDAPAuthService:
                 })
 
             conn.unbind()
+
+            # Cache the result
+            self.cache.set_all_users(users)
+
             return users
 
         except LDAPException as e:
             print(f"LDAP sync error: {e}")
             return []
+
+    def clear_cache(self):
+        """Clear all LDAP caches"""
+        self.cache.clear()
+
+    def get_cache_stats(self) -> Dict:
+        """Get cache statistics"""
+        return self.cache.get_stats()
 
 
 # Singleton instance

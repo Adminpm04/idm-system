@@ -50,6 +50,47 @@ async def create_role(
     return role
 
 
+@router.put("/roles/{role_id}", response_model=RoleResponse)
+async def update_role(
+    role_id: int,
+    role_in: RoleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Update an existing role"""
+    role = db.query(Role).filter(Role.id == role_id).first()
+
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
+
+    # Check if name is being changed to an existing name
+    if role_in.name and role_in.name != role.name:
+        existing = db.query(Role).filter(Role.name == role_in.name).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Role name already exists"
+            )
+        role.name = role_in.name
+
+    if role_in.description is not None:
+        role.description = role_in.description
+
+    # Update permissions
+    if role_in.permission_ids is not None:
+        permissions = db.query(Permission).filter(
+            Permission.id.in_(role_in.permission_ids)
+        ).all()
+        role.permissions = permissions
+
+    db.commit()
+    db.refresh(role)
+    return role
+
+
 @router.delete("/roles/{role_id}")
 async def delete_role(
     role_id: int,
@@ -407,7 +448,7 @@ async def sync_ldap_user(
 
         new_user = User(
             username=username,
-            email=ad_user.get('mail') or f"{username}@unknown.local",
+            email=ad_user.get('mail') or f"{username}@noemail.example.com",
             full_name=ad_user.get('displayName') or username,
             department=ad_user.get('department'),
             position=ad_user.get('title'),
@@ -503,7 +544,7 @@ async def sync_all_ldap_users(
                 # Create new user
                 new_user = User(
                     username=username,
-                    email=ad_user.get('mail') or f"{username}@unknown.local",
+                    email=ad_user.get('mail') or f"{username}@noemail.example.com",
                     full_name=ad_user.get('displayName') or username,
                     department=ad_user.get('department'),
                     position=ad_user.get('title'),
@@ -614,6 +655,7 @@ async def get_sync_status(
 ):
     """Get AD sync status statistics"""
     from app.core.config import settings
+    from app.core.ldap_auth import ldap_service
     from sqlalchemy import func
 
     total_users = db.query(User).count()
@@ -624,6 +666,9 @@ async def get_sync_status(
     # Get last sync time
     last_sync = db.query(func.max(User.last_ad_sync)).scalar()
 
+    # Get cache stats
+    cache_stats = ldap_service.get_cache_stats()
+
     return {
         'ldap_enabled': settings.LDAP_ENABLED,
         'total_users': total_users,
@@ -631,5 +676,31 @@ async def get_sync_status(
         'local_users': total_users - ldap_users,
         'disabled_users': disabled_users,
         'users_with_manager': users_with_manager,
-        'last_sync': last_sync.isoformat() if last_sync else None
+        'last_sync': last_sync.isoformat() if last_sync else None,
+        'cache': cache_stats
+    }
+
+
+@router.get("/ldap/cache-stats")
+async def get_cache_stats(
+    current_user: User = Depends(get_current_superuser)
+):
+    """Get LDAP cache statistics"""
+    from app.core.ldap_auth import ldap_service
+
+    return ldap_service.get_cache_stats()
+
+
+@router.post("/ldap/clear-cache")
+async def clear_ldap_cache(
+    current_user: User = Depends(get_current_superuser)
+):
+    """Clear LDAP cache"""
+    from app.core.ldap_auth import ldap_service
+
+    ldap_service.clear_cache()
+
+    return {
+        'success': True,
+        'message': 'LDAP cache cleared'
     }

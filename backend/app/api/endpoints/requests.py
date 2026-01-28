@@ -459,10 +459,10 @@ async def add_comment(
 ):
     """Add comment to request"""
     request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
-    
+
     if not request:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
-    
+
     # Create comment
     comment = RequestComment(
         request_id=request_id,
@@ -470,11 +470,177 @@ async def add_comment(
         **comment_in.model_dump()
     )
     db.add(comment)
-    
+
     # Create audit log
     create_audit_log(db, request.id, current_user.id, "commented", "Added comment")
-    
+
     db.commit()
     db.refresh(comment)
-    
+
     return comment
+
+
+@router.get("/search/suggestions")
+async def get_search_suggestions(
+    q: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get search suggestions for autocomplete"""
+    from app.models import System, Subsystem
+
+    if len(q) < 2:
+        return {"suggestions": []}
+
+    suggestions = []
+    q_lower = q.lower()
+
+    # Search in systems
+    systems = db.query(System).filter(
+        System.name.ilike(f"%{q}%"),
+        System.is_active == True
+    ).limit(3).all()
+    for system in systems:
+        suggestions.append({
+            "type": "system",
+            "id": system.id,
+            "label": f"System: {system.name}",
+            "value": system.name
+        })
+
+    # Search in subsystems
+    subsystems = db.query(Subsystem).filter(
+        Subsystem.name.ilike(f"%{q}%")
+    ).limit(3).all()
+    for subsystem in subsystems:
+        suggestions.append({
+            "type": "subsystem",
+            "id": subsystem.id,
+            "label": f"Subsystem: {subsystem.name}",
+            "value": subsystem.name
+        })
+
+    # Search in users
+    users = db.query(User).filter(
+        User.full_name.ilike(f"%{q}%"),
+        User.is_active == True
+    ).limit(3).all()
+    for user in users:
+        suggestions.append({
+            "type": "user",
+            "id": user.id,
+            "label": f"User: {user.full_name}",
+            "value": user.full_name
+        })
+
+    # Search in request numbers
+    requests = db.query(AccessRequest).filter(
+        AccessRequest.request_number.ilike(f"%{q}%")
+    ).limit(3).all()
+    for req in requests:
+        suggestions.append({
+            "type": "request",
+            "id": req.id,
+            "label": f"Request: {req.request_number}",
+            "value": req.request_number
+        })
+
+    # Status suggestions
+    statuses = [
+        ("draft", "Draft"),
+        ("in_review", "In Review"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+        ("implemented", "Implemented")
+    ]
+    for status_value, status_label in statuses:
+        if q_lower in status_value or q_lower in status_label.lower():
+            suggestions.append({
+                "type": "status",
+                "id": None,
+                "label": f"Status: {status_label}",
+                "value": status_value
+            })
+
+    return {"suggestions": suggestions[:10]}
+
+
+@router.get("/search/global")
+async def global_search(
+    q: str = None,
+    system_id: int = None,
+    subsystem_id: int = None,
+    user_id: int = None,
+    role_id: int = None,
+    status_filter: str = None,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Global search across requests"""
+    from app.models import System, Subsystem
+
+    query = db.query(AccessRequest)
+
+    # Text search in multiple fields
+    if q:
+        query = query.join(AccessRequest.system).outerjoin(AccessRequest.subsystem).outerjoin(AccessRequest.target_user).filter(
+            (AccessRequest.request_number.ilike(f"%{q}%")) |
+            (AccessRequest.purpose.ilike(f"%{q}%")) |
+            (System.name.ilike(f"%{q}%")) |
+            (Subsystem.name.ilike(f"%{q}%")) |
+            (User.full_name.ilike(f"%{q}%"))
+        )
+
+    # Filter by system
+    if system_id:
+        query = query.filter(AccessRequest.system_id == system_id)
+
+    # Filter by subsystem
+    if subsystem_id:
+        query = query.filter(AccessRequest.subsystem_id == subsystem_id)
+
+    # Filter by user (target user)
+    if user_id:
+        query = query.filter(
+            (AccessRequest.target_user_id == user_id) |
+            (AccessRequest.requester_id == user_id)
+        )
+
+    # Filter by role
+    if role_id:
+        query = query.filter(AccessRequest.access_role_id == role_id)
+
+    # Filter by status
+    if status_filter:
+        try:
+            status_enum = RequestStatus(status_filter.upper())
+            query = query.filter(AccessRequest.status == status_enum)
+        except ValueError:
+            pass
+
+    # Get total count
+    total = query.count()
+
+    # Get results
+    requests = query.order_by(AccessRequest.created_at.desc()).limit(limit).all()
+
+    # Format results
+    results = []
+    for req in requests:
+        results.append({
+            "id": req.id,
+            "request_number": req.request_number,
+            "status": req.status.value.lower() if req.status else None,
+            "system_name": req.system.name if req.system else None,
+            "subsystem_name": req.subsystem.name if req.subsystem else None,
+            "target_user_name": req.target_user.full_name if req.target_user else None,
+            "requester_name": req.requester.full_name if req.requester else None,
+            "created_at": req.created_at.isoformat() if req.created_at else None,
+            "purpose": req.purpose[:100] if req.purpose else None
+        })
+
+    return {
+        "requests": results,
+        "total": total
+    }

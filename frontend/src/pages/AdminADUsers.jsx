@@ -1,5 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../App';
+
+// Custom debounce hook
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 export default function AdminADUsers() {
   const { t } = useLanguage();
@@ -16,6 +33,10 @@ export default function AdminADUsers() {
     limit: 20,
     total: 0
   });
+
+  // Debounced search query (300ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const isFirstRender = useRef(true);
 
   const fetchSyncStatus = async () => {
     try {
@@ -62,13 +83,27 @@ export default function AdminADUsers() {
     }
   };
 
+  // Initial load
   useEffect(() => {
     searchUsers();
     fetchSyncStatus();
   }, []);
 
+  // Auto-search with debounce
+  useEffect(() => {
+    // Skip first render (initial load is handled above)
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // Search when debounced query changes
+    searchUsers(debouncedSearchQuery, 1);
+  }, [debouncedSearchQuery]);
+
   const handleSearch = (e) => {
     e.preventDefault();
+    // Manual search (button click) - immediate search
     searchUsers(searchQuery, 1);
   };
 
