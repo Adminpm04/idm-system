@@ -519,6 +519,7 @@ function UserModal({ user, onClose, onSave }) {
 function DemoUserModal({ onClose, onCreated, newUser }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(180); // 3 minutes in seconds
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
@@ -526,6 +527,34 @@ function DemoUserModal({ onClose, onCreated, newUser }) {
     password: 'demo123',
     minutes: 10,
   });
+
+  // Countdown timer when credentials are shown
+  useEffect(() => {
+    if (newUser) {
+      setTimeLeft(180); // Reset to 3 minutes
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            onClose(); // Auto-close when time runs out
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [newUser, onClose]);
+
+  // Format time as MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Calculate progress percentage
+  const progressPercent = (timeLeft / 180) * 100;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -648,6 +677,22 @@ function DemoUserModal({ onClose, onCreated, newUser }) {
               <ClockIcon size={24} className="mr-2" />
               {t('demoUserCreated')}
             </h2>
+
+            {/* OTP-style countdown timer */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600 dark:text-gray-400">{t('codeExpiresIn') || 'Code expires in'}:</span>
+                <span className={`text-2xl font-mono font-bold ${timeLeft <= 30 ? 'text-red-500 animate-pulse' : 'text-primary'}`}>
+                  {formatTime(timeLeft)}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 30 ? 'bg-red-500' : 'bg-primary'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
 
             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
               <div className="space-y-2">
