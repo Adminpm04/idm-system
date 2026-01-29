@@ -519,9 +519,6 @@ function LoginPage() {
             <p className="text-sm text-gray-400 dark:text-gray-500">
               IDM System
             </p>
-            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
-              Oriyonbonk 2025
-            </p>
           </div>
         </div>
       </div>
