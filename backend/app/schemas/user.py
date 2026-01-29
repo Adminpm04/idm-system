@@ -15,6 +15,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+    role_ids: Optional[List[int]] = None
+    is_active: Optional[bool] = True
 
 
 class UserUpdate(BaseModel):
