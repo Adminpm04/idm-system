@@ -30,6 +30,14 @@ export const translations = {
     enterPassword: 'Введите пароль',
     signingIn: 'Вход...',
     loginFailed: 'Ошибка входа',
+    enterVerificationCode: 'Введите код подтверждения',
+    codeSentMessage: 'Код подтверждения отправлен',
+    verificationCode: 'Код подтверждения',
+    codeExpired: 'Код истёк. Попробуйте снова.',
+    invalidCode: 'Неверный код',
+    verifying: 'Проверка...',
+    verify: 'Подтвердить',
+    back: 'Назад',
     signInWithDomain: 'Войдите с учётной записью домена',
 
     // Navigation
@@ -462,6 +470,14 @@ export const translations = {
     enterPassword: 'Enter password',
     signingIn: 'Signing in...',
     loginFailed: 'Login failed',
+    enterVerificationCode: 'Enter Verification Code',
+    codeSentMessage: 'A verification code has been sent',
+    verificationCode: 'Verification Code',
+    codeExpired: 'Code expired. Please try again.',
+    invalidCode: 'Invalid code',
+    verifying: 'Verifying...',
+    verify: 'Verify',
+    back: 'Back to login',
     signInWithDomain: 'Sign in with your domain account',
 
     // Navigation

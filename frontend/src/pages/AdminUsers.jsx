@@ -530,21 +530,23 @@ function DemoUserModal({ onClose, onCreated, newUser }) {
 
   // Countdown timer when credentials are shown
   useEffect(() => {
+    let timer;
     if (newUser) {
       setTimeLeft(180); // Reset to 3 minutes
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
             clearInterval(timer);
-            onClose(); // Auto-close when time runs out
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-      return () => clearInterval(timer);
     }
-  }, [newUser, onClose]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [newUser]);
 
   // Format time as MM:SS
   const formatTime = (seconds) => {

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.db.session import get_db
 from app.schemas.user import LoginRequest, Token, UserResponse
 from app.models import User
@@ -8,8 +8,81 @@ from app.core.security import verify_password, create_access_token, create_refre
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.ldap_auth import ldap_service
+from pydantic import BaseModel
+import secrets
+import hashlib
 
 router = APIRouter()
+
+# In-memory store for 2FA codes (in production, use Redis)
+_2fa_codes = {}
+
+# 2FA code expiration time in seconds
+TWO_FA_CODE_EXPIRY = 180  # 3 minutes
+
+class TwoFactorRequest(BaseModel):
+    username: str
+    password: str
+
+class TwoFactorResponse(BaseModel):
+    requires_2fa: bool = True
+    session_token: str
+    code_expiry_seconds: int = TWO_FA_CODE_EXPIRY
+    message: str = "Verification code sent"
+
+class VerifyCodeRequest(BaseModel):
+    session_token: str
+    code: str
+
+def generate_2fa_code():
+    """Generate a 6-digit verification code"""
+    return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+
+def store_2fa_code(user_id: int, code: str) -> str:
+    """Store 2FA code and return session token"""
+    # Create a session token
+    session_token = secrets.token_urlsafe(32)
+
+    # Store code with expiration
+    _2fa_codes[session_token] = {
+        'user_id': user_id,
+        'code': code,
+        'expires_at': datetime.now(timezone.utc) + timedelta(seconds=TWO_FA_CODE_EXPIRY),
+        'created_at': datetime.now(timezone.utc)
+    }
+
+    # Clean up old codes
+    cleanup_expired_codes()
+
+    return session_token
+
+def verify_2fa_code(session_token: str, code: str) -> int:
+    """Verify 2FA code and return user_id if valid"""
+    if session_token not in _2fa_codes:
+        return None
+
+    stored = _2fa_codes[session_token]
+
+    # Check expiration
+    if datetime.now(timezone.utc) > stored['expires_at']:
+        del _2fa_codes[session_token]
+        return None
+
+    # Check code
+    if stored['code'] != code:
+        return None
+
+    # Code is valid, remove it and return user_id
+    user_id = stored['user_id']
+    del _2fa_codes[session_token]
+    return user_id
+
+def cleanup_expired_codes():
+    """Remove expired 2FA codes"""
+    now = datetime.now(timezone.utc)
+    expired = [token for token, data in _2fa_codes.items() if now > data['expires_at']]
+    for token in expired:
+        del _2fa_codes[token]
 
 
 def find_manager_by_dn(db: Session, manager_dn: str) -> User:
@@ -104,12 +177,12 @@ def create_user_from_ad(db: Session, ad_data: dict) -> User:
     return user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login")
 async def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    """Login endpoint with AD integration"""
+    """Login endpoint with AD integration and 2FA"""
     user = None
     ad_authenticated = False
 
@@ -172,6 +245,45 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account is disabled in AD. Please contact IT support.",
+        )
+
+    # Generate 2FA code
+    code = generate_2fa_code()
+    session_token = store_2fa_code(user.id, code)
+
+    # In production, send code via email/SMS
+    # For now, we'll include it in the response for testing (REMOVE IN PRODUCTION!)
+    print(f"2FA Code for {user.username}: {code}")  # Log for debugging
+
+    return {
+        "requires_2fa": True,
+        "session_token": session_token,
+        "code_expiry_seconds": TWO_FA_CODE_EXPIRY,
+        "message": "Verification code sent",
+        # TEMPORARY: Include code for testing - REMOVE IN PRODUCTION!
+        "_debug_code": code
+    }
+
+
+@router.post("/verify-2fa", response_model=Token)
+async def verify_2fa(
+    verify_data: VerifyCodeRequest,
+    db: Session = Depends(get_db)
+):
+    """Verify 2FA code and complete login"""
+    user_id = verify_2fa_code(verify_data.session_token, verify_data.code)
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code",
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
         )
 
     # Update last login

@@ -171,12 +171,18 @@ function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (username, password) => {
-    const response = await authAPI.login(username, password);
-    localStorage.setItem('access_token', response.data.access_token);
-    localStorage.setItem('refresh_token', response.data.refresh_token);
-    const userRes = await authAPI.getMe();
-    setUser(userRes.data);
+  const login = async (username, password, userData = null) => {
+    if (userData) {
+      // Direct set user (used after 2FA verification)
+      setUser(userData);
+    } else {
+      // Legacy login flow (not used with 2FA)
+      const response = await authAPI.login(username, password);
+      localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
+      const userRes = await authAPI.getMe();
+      setUser(userRes.data);
+    }
   };
 
   const logout = () => {
@@ -359,24 +365,100 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showGame, setShowGame] = useState(false);
+
+  // 2FA states
+  const [step, setStep] = useState('credentials'); // 'credentials' or '2fa'
+  const [sessionToken, setSessionToken] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [timeLeft, setTimeLeft] = useState(180);
+  const [debugCode, setDebugCode] = useState(''); // Temporary for testing
+
   const { login } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  // Countdown timer for 2FA
+  useEffect(() => {
+    let timer;
+    if (step === '2fa' && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setError(t('codeExpired') || 'Code expired. Please try again.');
+            setStep('credentials');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [step, timeLeft, t]);
+
+  // Format time as MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCredentialsSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await login(username, password);
-      navigate('/');
+      const response = await authAPI.login(username, password);
+
+      if (response.data.requires_2fa) {
+        // Switch to 2FA step
+        setSessionToken(response.data.session_token);
+        setTimeLeft(response.data.code_expiry_seconds || 180);
+        setDebugCode(response.data._debug_code || ''); // Temporary for testing
+        setStep('2fa');
+        setVerificationCode('');
+      } else {
+        // Direct login (no 2FA)
+        localStorage.setItem('access_token', response.data.access_token);
+        localStorage.setItem('refresh_token', response.data.refresh_token);
+        const userRes = await authAPI.getMe();
+        login(null, null, userRes.data);
+        navigate('/');
+      }
     } catch (err) {
       setError(err.response?.data?.detail || t('loginFailed'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await authAPI.verify2fa(sessionToken, verificationCode);
+      localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
+      const userRes = await authAPI.getMe();
+      login(null, null, userRes.data);
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.detail || t('invalidCode') || 'Invalid code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    setStep('credentials');
+    setError('');
+    setVerificationCode('');
   };
 
   return (
@@ -435,75 +517,159 @@ function LoginPage() {
           {showGame && <MemoryGame onClose={() => setShowGame(false)} />}
 
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-                  </svg>
-                  {error}
-                </div>
-              )}
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg flex items-center mb-5">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                </svg>
+                {error}
+              </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('username')}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-primary/50 dark:text-primary/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            {step === 'credentials' ? (
+              <form onSubmit={handleCredentialsSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('username')}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-primary/50 dark:text-primary/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="input pl-10"
+                      placeholder={t('enterUsername')}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('password')}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-primary/50 dark:text-primary/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="input pl-10"
+                      placeholder={t('enterPassword')}
+                      required
+                    />
+                </div>
+              </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 text-lg font-semibold text-white bg-primary rounded-xl hover:bg-primary/90 transform hover:scale-[1.02] transition-all shadow-lg disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('signingIn')}
+                    </span>
+                  ) : t('login')}
+                </button>
+              </form>
+            ) : (
+              /* 2FA Code Entry */
+              <form onSubmit={handleVerifyCode} className="space-y-5">
+                {/* Timer Display */}
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+                    <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                    {t('enterVerificationCode') || 'Enter Verification Code'}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    {t('codeSentMessage') || 'A verification code has been sent'}
+                  </p>
+
+                  {/* Countdown Timer */}
+                  <div className="mb-4">
+                    <div className={`text-4xl font-mono font-bold ${timeLeft <= 30 ? 'text-red-500 animate-pulse' : 'text-primary'}`}>
+                      {formatTime(timeLeft)}
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-3 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 30 ? 'bg-red-500' : 'bg-primary'}`}
+                        style={{ width: `${(timeLeft / 180) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {t('codeExpiresIn') || 'Code expires in'}: {formatTime(timeLeft)}
+                    </p>
+                  </div>
+
+                  {/* Debug code display - REMOVE IN PRODUCTION */}
+                  {debugCode && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">Debug: Your code is</p>
+                      <p className="text-2xl font-mono font-bold text-yellow-700 dark:text-yellow-300">{debugCode}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('verificationCode') || 'Verification Code'}
+                  </label>
                   <input
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="input pl-10"
-                    placeholder={t('enterUsername')}
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="input text-center text-2xl font-mono tracking-widest"
+                    placeholder="000000"
+                    maxLength={6}
                     required
                     autoFocus
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('password')}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-primary/50 dark:text-primary/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input pl-10"
-                    placeholder={t('enterPassword')}
-                    required
-                  />
-                </div>
-              </div>
+                <button
+                  type="submit"
+                  disabled={loading || verificationCode.length !== 6}
+                  className="w-full py-3.5 text-lg font-semibold text-white bg-primary rounded-xl hover:bg-primary/90 transform hover:scale-[1.02] transition-all shadow-lg disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {t('verifying') || 'Verifying...'}
+                    </span>
+                  ) : (t('verify') || 'Verify')}
+                </button>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 text-lg font-semibold text-white bg-primary rounded-xl hover:bg-primary/90 transform hover:scale-[1.02] transition-all shadow-lg disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {t('signingIn')}
-                  </span>
-                ) : t('login')}
-              </button>
-            </form>
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  ← {t('back') || 'Back to login'}
+                </button>
+              </form>
+            )}
 
             <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
