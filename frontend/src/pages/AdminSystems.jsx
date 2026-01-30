@@ -3,6 +3,22 @@ import { systemsAPI, subsystemsAPI, approvalChainAPI, usersAPI } from '../servic
 import { InfoIcon, PlusIcon } from '../components/Icons';
 import { useLanguage } from '../App';
 
+// Criticality level badge component
+function CriticalityBadge({ level, t }) {
+  const config = {
+    low: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', label: t('criticalityLow') },
+    medium: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-300', label: t('criticalityMedium') },
+    high: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-300', label: t('criticalityHigh') },
+    critical: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300', label: t('criticalityCritical') },
+  };
+  const c = config[level] || config.medium;
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      {c.label}
+    </span>
+  );
+}
+
 export default function AdminSystems() {
   const { t } = useLanguage();
   const [systems, setSystems] = useState([]);
@@ -70,6 +86,7 @@ export default function AdminSystems() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('name')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('code')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('criticality')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('description')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('actions')}</th>
@@ -80,6 +97,9 @@ export default function AdminSystems() {
                   <tr key={system.id}>
                     <td className="px-6 py-4 font-medium dark:text-gray-100">{system.name}</td>
                     <td className="px-6 py-4 dark:text-gray-300">{system.code}</td>
+                    <td className="px-6 py-4">
+                      <CriticalityBadge level={system.criticality_level} t={t} />
+                    </td>
                     <td className="px-6 py-4 dark:text-gray-300">{system.description}</td>
                     <td className="px-6 py-4">
                       {system.is_active ? (
@@ -175,6 +195,7 @@ function SystemModal({ system, onClose, onSave }) {
     name: system?.name || '',
     code: system?.code || '',
     description: system?.description || '',
+    criticality_level: system?.criticality_level || 'medium',
     url: system?.url || '',
     is_active: system?.is_active ?? true,
   });
@@ -233,6 +254,21 @@ function SystemModal({ system, onClose, onSave }) {
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-300">{t('criticality')} *</label>
+            <select
+              className="input"
+              value={formData.criticality_level}
+              onChange={(e) => setFormData({...formData, criticality_level: e.target.value})}
+            >
+              <option value="low">{t('criticalityLow')}</option>
+              <option value="medium">{t('criticalityMedium')}</option>
+              <option value="high">{t('criticalityHigh')}</option>
+              <option value="critical">{t('criticalityCritical')}</option>
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('criticalityHint')}</p>
           </div>
 
           <div>

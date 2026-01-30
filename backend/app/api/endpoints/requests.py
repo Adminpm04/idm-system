@@ -12,7 +12,8 @@ from app.schemas.request import (
     AccessRequestSubmit, ApprovalDecision, RequestCommentCreate,
     RequestCommentResponse, RequestStatistics, MyRequestsSummary,
     BulkRequestCreate, BulkRequestResponse,
-    AttachmentResponse, AttachmentUploadResponse
+    AttachmentResponse, AttachmentUploadResponse,
+    RecommendationsResponse, SystemRecommendation, RoleRecommendation
 )
 from app.models import (
     AccessRequest, Approval, RequestComment, AuditLog, User, RequestAttachment,
@@ -30,6 +31,226 @@ ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter()
+
+
+@router.get("/recommendations", response_model=RecommendationsResponse)
+async def get_recommendations(
+    target_user_id: Optional[int] = None,
+    system_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get ML-based recommendations for systems and roles.
+
+    Algorithm uses 3 signals:
+    1. User's past approved requests (weight 40%)
+    2. Colleagues from same department/position (weight 35%)
+    3. Popular systems/roles in organization over 3 months (weight 25%)
+    """
+    from sqlalchemy import func, and_, or_
+    from datetime import datetime, timedelta
+    from app.models.system import System, AccessRole
+
+    user_id = target_user_id or current_user.id
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        return RecommendationsResponse(recommended_systems=[], recommended_roles=[])
+
+    recommended_systems = []
+    recommended_roles = []
+
+    # Time window for popularity: last 3 months
+    three_months_ago = datetime.now() - timedelta(days=90)
+
+    if not system_id:
+        # ===== RECOMMEND SYSTEMS =====
+        system_scores = {}  # {system_id: {'score': float, 'reasons': []}}
+
+        # Signal 1: User's past approved requests (40%)
+        user_approved_requests = db.query(
+            AccessRequest.system_id,
+            func.count(AccessRequest.id).label('count')
+        ).filter(
+            AccessRequest.target_user_id == user_id,
+            AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED])
+        ).group_by(AccessRequest.system_id).all()
+
+        max_user_count = max([r.count for r in user_approved_requests], default=1)
+        for req in user_approved_requests:
+            if req.system_id not in system_scores:
+                system_scores[req.system_id] = {'score': 0, 'reasons': []}
+            normalized_score = (req.count / max_user_count) * 40
+            system_scores[req.system_id]['score'] += normalized_score
+            system_scores[req.system_id]['reasons'].append('user_history')
+
+        # Signal 2: Colleagues from same department (35%)
+        if user.department:
+            colleague_requests = db.query(
+                AccessRequest.system_id,
+                func.count(AccessRequest.id).label('count')
+            ).join(
+                User, User.id == AccessRequest.target_user_id
+            ).filter(
+                User.department == user.department,
+                User.id != user_id,
+                AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED]),
+                AccessRequest.created_at >= three_months_ago
+            ).group_by(AccessRequest.system_id).all()
+
+            max_colleague_count = max([r.count for r in colleague_requests], default=1)
+            for req in colleague_requests:
+                if req.system_id not in system_scores:
+                    system_scores[req.system_id] = {'score': 0, 'reasons': []}
+                normalized_score = (req.count / max_colleague_count) * 35
+                system_scores[req.system_id]['score'] += normalized_score
+                system_scores[req.system_id]['reasons'].append('department')
+
+        # Signal 3: Popular systems in organization (25%)
+        popular_systems = db.query(
+            AccessRequest.system_id,
+            func.count(AccessRequest.id).label('count')
+        ).filter(
+            AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED]),
+            AccessRequest.created_at >= three_months_ago
+        ).group_by(AccessRequest.system_id).order_by(func.count(AccessRequest.id).desc()).limit(10).all()
+
+        max_popular_count = max([r.count for r in popular_systems], default=1)
+        for req in popular_systems:
+            if req.system_id not in system_scores:
+                system_scores[req.system_id] = {'score': 0, 'reasons': []}
+            normalized_score = (req.count / max_popular_count) * 25
+            system_scores[req.system_id]['score'] += normalized_score
+            system_scores[req.system_id]['reasons'].append('popular')
+
+        # Get system details and build response
+        if system_scores:
+            systems_list = db.query(System).filter(
+                System.id.in_(list(system_scores.keys())),
+                System.is_active == True
+            ).all()
+
+            for sys in systems_list:
+                data = system_scores[sys.id]
+                # Determine primary reason
+                reasons = data['reasons']
+                if 'user_history' in reasons:
+                    reason = "На основе ваших заявок"
+                elif 'department' in reasons:
+                    reason = "Популярно в вашем отделе"
+                else:
+                    reason = "Популярно в организации"
+
+                recommended_systems.append(SystemRecommendation(
+                    system_id=sys.id,
+                    system_name=sys.name,
+                    system_code=sys.code,
+                    score=round(data['score'], 1),
+                    reason=reason
+                ))
+
+            # Sort by score descending and limit to top 5
+            recommended_systems.sort(key=lambda x: x.score, reverse=True)
+            recommended_systems = recommended_systems[:5]
+
+    else:
+        # ===== RECOMMEND ROLES FOR SELECTED SYSTEM =====
+        role_scores = {}  # {role_id: {'score': float, 'reasons': []}}
+
+        # Signal 1: User's past role choices for this system (45%)
+        user_role_requests = db.query(
+            AccessRequest.access_role_id,
+            func.count(AccessRequest.id).label('count')
+        ).filter(
+            AccessRequest.target_user_id == user_id,
+            AccessRequest.system_id == system_id,
+            AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED])
+        ).group_by(AccessRequest.access_role_id).all()
+
+        max_user_role_count = max([r.count for r in user_role_requests], default=1)
+        for req in user_role_requests:
+            if req.access_role_id not in role_scores:
+                role_scores[req.access_role_id] = {'score': 0, 'reasons': []}
+            normalized_score = (req.count / max_user_role_count) * 45
+            role_scores[req.access_role_id]['score'] += normalized_score
+            role_scores[req.access_role_id]['reasons'].append('user_history')
+
+        # Signal 2: Colleagues' role choices for this system (35%)
+        if user.department:
+            colleague_role_requests = db.query(
+                AccessRequest.access_role_id,
+                func.count(AccessRequest.id).label('count')
+            ).join(
+                User, User.id == AccessRequest.target_user_id
+            ).filter(
+                User.department == user.department,
+                User.id != user_id,
+                AccessRequest.system_id == system_id,
+                AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED]),
+                AccessRequest.created_at >= three_months_ago
+            ).group_by(AccessRequest.access_role_id).all()
+
+            max_colleague_role_count = max([r.count for r in colleague_role_requests], default=1)
+            for req in colleague_role_requests:
+                if req.access_role_id not in role_scores:
+                    role_scores[req.access_role_id] = {'score': 0, 'reasons': []}
+                normalized_score = (req.count / max_colleague_role_count) * 35
+                role_scores[req.access_role_id]['score'] += normalized_score
+                role_scores[req.access_role_id]['reasons'].append('department')
+
+        # Signal 3: Popular roles for this system (20%)
+        popular_roles = db.query(
+            AccessRequest.access_role_id,
+            func.count(AccessRequest.id).label('count')
+        ).filter(
+            AccessRequest.system_id == system_id,
+            AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED]),
+            AccessRequest.created_at >= three_months_ago
+        ).group_by(AccessRequest.access_role_id).order_by(func.count(AccessRequest.id).desc()).limit(10).all()
+
+        max_popular_role_count = max([r.count for r in popular_roles], default=1)
+        for req in popular_roles:
+            if req.access_role_id not in role_scores:
+                role_scores[req.access_role_id] = {'score': 0, 'reasons': []}
+            normalized_score = (req.count / max_popular_role_count) * 20
+            role_scores[req.access_role_id]['score'] += normalized_score
+            role_scores[req.access_role_id]['reasons'].append('popular')
+
+        # Get role details and build response
+        if role_scores:
+            roles_list = db.query(AccessRole).filter(
+                AccessRole.id.in_(list(role_scores.keys())),
+                AccessRole.is_active == True
+            ).all()
+
+            for role in roles_list:
+                data = role_scores[role.id]
+                # Determine primary reason
+                reasons = data['reasons']
+                if 'user_history' in reasons:
+                    reason = "На основе ваших заявок"
+                elif 'department' in reasons:
+                    reason = "Популярно в вашем отделе"
+                else:
+                    reason = "Популярно для этой системы"
+
+                recommended_roles.append(RoleRecommendation(
+                    access_role_id=role.id,
+                    role_name=role.name,
+                    access_level=role.access_level.value if role.access_level else "read",
+                    risk_level=role.risk_level,
+                    score=round(data['score'], 1),
+                    reason=reason
+                ))
+
+            # Sort by score descending and limit to top 5
+            recommended_roles.sort(key=lambda x: x.score, reverse=True)
+            recommended_roles = recommended_roles[:5]
+
+    return RecommendationsResponse(
+        recommended_systems=recommended_systems,
+        recommended_roles=recommended_roles
+    )
 
 
 def generate_request_number(db: Session) -> str:
@@ -244,6 +465,46 @@ async def create_request(
     db: Session = Depends(get_db)
 ):
     """Create new access request"""
+    from app.models.sod import SodConflict, SodSeverity
+    from sqlalchemy import or_, and_
+
+    # ===== SoD CHECK =====
+    # Get user's existing approved/implemented roles
+    existing_role_ids = db.query(AccessRequest.access_role_id).filter(
+        AccessRequest.target_user_id == request_in.target_user_id,
+        AccessRequest.status.in_([RequestStatus.APPROVED, RequestStatus.IMPLEMENTED])
+    ).distinct().all()
+    existing_role_ids = [r[0] for r in existing_role_ids]
+
+    if existing_role_ids:
+        # Check for hard block conflicts
+        hard_block_conflicts = db.query(SodConflict).filter(
+            SodConflict.is_active == True,
+            SodConflict.severity == SodSeverity.HARD_BLOCK,
+            or_(
+                and_(
+                    SodConflict.role_a_id == request_in.access_role_id,
+                    SodConflict.role_b_id.in_(existing_role_ids)
+                ),
+                and_(
+                    SodConflict.role_b_id == request_in.access_role_id,
+                    SodConflict.role_a_id.in_(existing_role_ids)
+                )
+            )
+        ).all()
+
+        if hard_block_conflicts:
+            conflict = hard_block_conflicts[0]
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "sod_violation",
+                    "message": f"SoD конфликт: {conflict.conflict_name}",
+                    "description": conflict.description or "Запрошенная роль конфликтует с существующими правами пользователя",
+                    "conflict_id": conflict.id
+                }
+            )
+
     # Generate request number
     request_number = generate_request_number(db)
     

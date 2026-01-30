@@ -234,3 +234,29 @@ class AttachmentUploadResponse(BaseModel):
     file_size: int
     content_type: str
     message: str
+
+
+# Recommendation Schemas (ML-based suggestions)
+class SystemRecommendation(BaseModel):
+    """Recommended system for the user"""
+    system_id: int
+    system_name: str
+    system_code: str
+    score: float  # 0-100
+    reason: str   # "На основе ваших заявок" / "Популярно в вашем отделе"
+
+
+class RoleRecommendation(BaseModel):
+    """Recommended role for a selected system"""
+    access_role_id: int
+    role_name: str
+    access_level: str
+    risk_level: int
+    score: float  # 0-100
+    reason: str
+
+
+class RecommendationsResponse(BaseModel):
+    """Response with recommended systems and roles"""
+    recommended_systems: List[SystemRecommendation] = []
+    recommended_roles: List[RoleRecommendation] = []

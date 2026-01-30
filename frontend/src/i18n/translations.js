@@ -437,6 +437,45 @@ export const translations = {
     accountStatus: 'Статус аккаунта',
     authSource: 'Источник',
     local: 'Локальный',
+
+    // Recommendations
+    recommendedForYou: 'Рекомендуется для вас',
+    suggested: 'Рекомендуемые',
+    basedOnHistory: 'На основе вашей истории',
+    popularInDepartment: 'Популярно в вашем отделе',
+    popularInOrg: 'Популярно в организации',
+    hide: 'Скрыть',
+
+    // Criticality
+    criticality: 'Критичность',
+    criticalityLow: 'Низкая',
+    criticalityMedium: 'Средняя',
+    criticalityHigh: 'Высокая',
+    criticalityCritical: 'Критическая',
+    criticalityHint: 'Влияет на процесс согласования и уровень проверок',
+    criticalSystemWarning: 'Эта система имеет высокий уровень критичности. Заявка потребует дополнительного согласования.',
+    criticalSystemInfo: 'Система критичности',
+
+    // Segregation of Duties (SoD)
+    checkingSod: 'Проверка разделения полномочий',
+    sodViolation: 'Нарушение SoD',
+    sodViolationWarning: 'Предупреждение: конфликт ролей',
+    sodViolationWarningDesc: 'Запрошенная роль может конфликтовать с существующими правами пользователя. Рекомендуется обосновать необходимость.',
+    sodViolationBlocked: 'Запрос заблокирован: конфликт ролей',
+    sodViolationBlockedDesc: 'Запрошенная роль конфликтует с существующими правами пользователя. Такое сочетание ролей запрещено политикой безопасности.',
+    sodManagement: 'Управление SoD',
+    sodManagementDesc: 'Разделение обязанностей (Segregation of Duties)',
+    addSodRule: 'Добавить правило SoD',
+    conflictName: 'Название конфликта',
+    roleA: 'Первая роль',
+    roleB: 'Вторая роль',
+    severity: 'Строгость',
+    severityWarning: 'Предупреждение',
+    severityHardBlock: 'Жёсткая блокировка',
+    sodRuleCreated: 'Правило SoD создано',
+    sodRuleDeleted: 'Правило SoD удалено',
+    confirmDeleteSodRule: 'Удалить это правило SoD?',
+    noSodRules: 'Правила SoD не настроены',
   },
 
   en: {
@@ -877,5 +916,44 @@ export const translations = {
     accountStatus: 'Account Status',
     authSource: 'Source',
     local: 'Local',
+
+    // Recommendations
+    recommendedForYou: 'Recommended for you',
+    suggested: 'Suggested',
+    basedOnHistory: 'Based on your history',
+    popularInDepartment: 'Popular in your department',
+    popularInOrg: 'Popular in organization',
+    hide: 'Hide',
+
+    // Criticality
+    criticality: 'Criticality',
+    criticalityLow: 'Low',
+    criticalityMedium: 'Medium',
+    criticalityHigh: 'High',
+    criticalityCritical: 'Critical',
+    criticalityHint: 'Affects approval process and verification level',
+    criticalSystemWarning: 'This system has high criticality level. Request will require additional approval.',
+    criticalSystemInfo: 'System criticality',
+
+    // Segregation of Duties (SoD)
+    checkingSod: 'Checking segregation of duties',
+    sodViolation: 'SoD Violation',
+    sodViolationWarning: 'Warning: Role Conflict',
+    sodViolationWarningDesc: 'The requested role may conflict with user\'s existing permissions. Please provide justification.',
+    sodViolationBlocked: 'Request Blocked: Role Conflict',
+    sodViolationBlockedDesc: 'The requested role conflicts with user\'s existing permissions. This role combination is prohibited by security policy.',
+    sodManagement: 'SoD Management',
+    sodManagementDesc: 'Segregation of Duties policy management',
+    addSodRule: 'Add SoD Rule',
+    conflictName: 'Conflict Name',
+    roleA: 'First Role',
+    roleB: 'Second Role',
+    severity: 'Severity',
+    severityWarning: 'Warning',
+    severityHardBlock: 'Hard Block',
+    sodRuleCreated: 'SoD rule created',
+    sodRuleDeleted: 'SoD rule deleted',
+    confirmDeleteSodRule: 'Delete this SoD rule?',
+    noSodRules: 'No SoD rules configured',
   }
 };

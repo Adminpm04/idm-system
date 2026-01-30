@@ -17,6 +17,15 @@ api.interceptors.request.use((config) => {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Debug logging
+  if (config.url?.includes('verify-2fa')) {
+    console.log('[AXIOS DEBUG] Request config:', {
+      url: config.url,
+      method: config.method,
+      data: config.data,
+      dataStringified: JSON.stringify(config.data)
+    });
+  }
   return config;
 });
 
@@ -92,7 +101,11 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }),
-  verify2fa: (sessionToken, code) => api.post('/auth/verify-2fa', { session_token: sessionToken, code }),
+  verify2fa: (sessionToken, code) => {
+    const payload = { session_token: String(sessionToken), code: String(code) };
+    console.log('[DEBUG] verify2fa payload:', payload);
+    return api.post('/auth/verify-2fa', payload);
+  },
   getMe: () => api.get('/auth/me'),
   refresh: (refreshToken) => api.post('/auth/refresh', { refresh_token: refreshToken }),
 };
@@ -128,6 +141,7 @@ export const requestsAPI = {
   statistics: () => api.get('/requests/statistics'),
   searchSuggestions: (q) => api.get('/requests/search/suggestions', { params: { q } }),
   globalSearch: (params) => api.get('/requests/search/global', { params }),
+  getRecommendations: (params) => api.get('/requests/recommendations', { params }),
   // Attachments
   listAttachments: (requestId) => api.get('/requests/' + requestId + '/attachments'),
   uploadAttachment: (requestId, file, description, attachmentType) => {
@@ -205,4 +219,18 @@ export const dashboardCardsAPI = {
     });
   },
   reorder: (order) => api.post('/dashboard-cards/reorder', order),
+};
+
+// Segregation of Duties API
+export const sodAPI = {
+  // Check for SoD violations
+  check: (userId, roleId) => api.post('/sod/check', { user_id: userId, role_id: roleId }),
+  checkBulk: (userId, roleIds) => api.post('/sod/check-bulk', { user_id: userId, role_ids: roleIds }),
+  getUserViolations: (userId) => api.get('/sod/user/' + userId + '/violations'),
+
+  // Admin: Conflict rule management
+  listConflicts: (params) => api.get('/sod/conflicts', { params }),
+  createConflict: (data) => api.post('/sod/conflicts', data),
+  updateConflict: (id, data) => api.put('/sod/conflicts/' + id, data),
+  deleteConflict: (id) => api.delete('/sod/conflicts/' + id),
 };

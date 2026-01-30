@@ -449,7 +449,16 @@ function LoginPage() {
       login(null, null, userRes.data);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || t('invalidCode') || 'Invalid code');
+      const detail = err.response?.data?.detail;
+      let errorMsg;
+      if (Array.isArray(detail)) {
+        errorMsg = detail[0]?.msg || 'Validation error';
+      } else if (typeof detail === 'object') {
+        errorMsg = detail?.msg || JSON.stringify(detail);
+      } else {
+        errorMsg = detail;
+      }
+      setError(String(errorMsg) || t('invalidCode') || 'Invalid code');
     } finally {
       setLoading(false);
     }

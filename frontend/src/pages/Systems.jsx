@@ -3,6 +3,22 @@ import { systemsAPI } from '../services/api';
 import { LinkIcon, SystemIcon } from '../components/Icons';
 import { useLanguage } from '../App';
 
+// Criticality badge component
+function CriticalityBadge({ level, t }) {
+  const config = {
+    low: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300', label: t('criticalityLow') },
+    medium: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-300', label: t('criticalityMedium') },
+    high: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-300', label: t('criticalityHigh') },
+    critical: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300', label: t('criticalityCritical') },
+  };
+  const c = config[level] || config.medium;
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      {c.label}
+    </span>
+  );
+}
+
 export default function Systems() {
   const { t } = useLanguage();
   const [systems, setSystems] = useState([]);
@@ -54,11 +70,7 @@ export default function Systems() {
                 </div>
               </div>
 
-              {system.is_active ? (
-                <span className="badge badge-success">{t('active')}</span>
-              ) : (
-                <span className="badge badge-secondary">{t('inactive')}</span>
-              )}
+              <CriticalityBadge level={system.criticality_level} t={t} />
             </div>
 
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">

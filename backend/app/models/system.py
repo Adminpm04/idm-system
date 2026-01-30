@@ -13,6 +13,13 @@ class SystemType(str, enum.Enum):
     OTHER = "other"
 
 
+class CriticalityLevel(str, enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 class System(Base):
     """Corporate systems/applications that require access management"""
     __tablename__ = "systems"
@@ -22,6 +29,10 @@ class System(Base):
     code = Column(String(50), unique=True, index=True, nullable=False)  # Short identifier
     description = Column(Text, nullable=True)
     system_type = Column(Enum(SystemType), default=SystemType.APPLICATION, nullable=False)
+    criticality_level = Column(
+        Enum(CriticalityLevel, values_callable=lambda obj: [e.value for e in obj]),
+        default=CriticalityLevel.MEDIUM, nullable=False
+    )
     is_active = Column(Boolean, default=True, nullable=False)
     
     # Owner/responsible person

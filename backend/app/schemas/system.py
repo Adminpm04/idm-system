@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, HttpUrl
 from typing import Optional, List
 from datetime import datetime
-from app.models.system import SystemType, AccessLevel
+from app.models.system import SystemType, AccessLevel, CriticalityLevel
 
 
 # System Schemas
@@ -10,6 +10,7 @@ class SystemBase(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
     description: Optional[str] = None
     system_type: SystemType = SystemType.APPLICATION
+    criticality_level: CriticalityLevel = CriticalityLevel.MEDIUM
     url: Optional[str] = None
     documentation_url: Optional[str] = None
     owner_id: Optional[int] = None
@@ -23,6 +24,7 @@ class SystemUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     system_type: Optional[SystemType] = None
+    criticality_level: Optional[CriticalityLevel] = None
     url: Optional[str] = None
     documentation_url: Optional[str] = None
     owner_id: Optional[int] = None

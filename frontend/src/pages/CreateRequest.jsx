@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
-import { systemsAPI, subsystemsAPI, usersAPI, requestsAPI } from '../services/api';
+import { systemsAPI, subsystemsAPI, usersAPI, requestsAPI, sodAPI } from '../services/api';
 import { CheckIcon, InfoIcon } from '../components/Icons';
 import { useTheme, useLanguage } from '../App';
 
@@ -25,6 +25,26 @@ const TrashIcon = ({ size = 20, className = '' }) => (
   <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <polyline points="3 6 5 6 21 6"></polyline>
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+  </svg>
+);
+
+const LightbulbIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9 21h6"></path>
+    <path d="M9 18h6"></path>
+    <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"></path>
+  </svg>
+);
+
+const ChevronDownIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="6 9 12 15 18 9"></polyline>
+  </svg>
+);
+
+const ChevronUpIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="18 15 12 9 6 15"></polyline>
   </svg>
 );
 
@@ -53,6 +73,19 @@ function CreateRequestPage() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const fileInputRef = useRef(null);
 
+  // Recommendations state
+  const [recommendations, setRecommendations] = useState({
+    recommended_systems: [],
+    recommended_roles: []
+  });
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(true);
+
+  // SoD state
+  const [sodViolations, setSodViolations] = useState([]);
+  const [sodHardBlock, setSodHardBlock] = useState(false);
+  const [checkingSod, setCheckingSod] = useState(false);
+
   // Options data
   const [systems, setSystems] = useState([]);
   const [subsystems, setSubsystems] = useState([]);
@@ -64,7 +97,15 @@ function CreateRequestPage() {
   useEffect(() => {
     loadSystems();
     loadUsers();
+    loadRecommendations();
   }, []);
+
+  // Load role recommendations when system changes
+  useEffect(() => {
+    if (formData.system_id) {
+      loadRecommendations(formData.system_id);
+    }
+  }, [formData.system_id]);
 
   // Load access roles when system is selected
   useEffect(() => {
@@ -122,6 +163,77 @@ function CreateRequestPage() {
       setLoadingRoles(false);
     }
   };
+
+  const loadRecommendations = async (systemId = null) => {
+    setLoadingRecommendations(true);
+    try {
+      const params = {};
+      // If multiple users selected, skip personalized recommendations
+      if (formData.target_user_ids.length === 1) {
+        params.target_user_id = formData.target_user_ids[0];
+      }
+      if (systemId) {
+        params.system_id = systemId;
+      }
+      const response = await requestsAPI.getRecommendations(params);
+      setRecommendations(response.data);
+    } catch (err) {
+      console.error('Error loading recommendations:', err);
+      // Silently fail - recommendations are optional
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+  // SoD checking
+  const checkSodViolations = async (roleId, userIds) => {
+    if (!roleId || userIds.length === 0) {
+      setSodViolations([]);
+      setSodHardBlock(false);
+      return;
+    }
+
+    setCheckingSod(true);
+    try {
+      // For single user, check their specific violations
+      // For multiple users, we'll check each one
+      const allViolations = [];
+      let hasHardBlock = false;
+
+      for (const userId of userIds.slice(0, 5)) { // Limit checks to avoid performance issues
+        const response = await sodAPI.check(userId, parseInt(roleId));
+        if (response.data.violations && response.data.violations.length > 0) {
+          allViolations.push(...response.data.violations);
+        }
+        if (response.data.has_hard_blocks) {
+          hasHardBlock = true;
+        }
+      }
+
+      // Remove duplicates by conflict_id
+      const uniqueViolations = allViolations.filter(
+        (v, index, self) => index === self.findIndex(t => t.conflict_id === v.conflict_id)
+      );
+
+      setSodViolations(uniqueViolations);
+      setSodHardBlock(hasHardBlock);
+    } catch (err) {
+      console.error('Error checking SoD:', err);
+      // Don't block on SoD check errors
+    } finally {
+      setCheckingSod(false);
+    }
+  };
+
+  // Check SoD when role or user changes
+  useEffect(() => {
+    if (formData.access_role_id && formData.target_user_ids.length > 0) {
+      checkSodViolations(formData.access_role_id, formData.target_user_ids);
+    } else {
+      setSodViolations([]);
+      setSodHardBlock(false);
+    }
+  }, [formData.access_role_id, formData.target_user_ids]);
 
   // File handling
   const handleFileSelect = (e) => {
@@ -266,7 +378,13 @@ function CreateRequestPage() {
       }
     } catch (err) {
       console.error('Error creating request:', err);
-      setError(err.response?.data?.detail || 'Error creating request');
+      const detail = err.response?.data?.detail;
+      if (detail && typeof detail === 'object' && detail.error === 'sod_violation') {
+        // SoD violation from backend
+        setError(`${t('sodViolation')}: ${detail.message}. ${detail.description || ''}`);
+      } else {
+        setError(typeof detail === 'string' ? detail : 'Error creating request');
+      }
     } finally {
       setLoading(false);
     }
@@ -369,6 +487,100 @@ function CreateRequestPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Recommendations Panel */}
+          {(recommendations.recommended_systems.length > 0 || recommendations.recommended_roles.length > 0) && (
+            <div className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-amber-900 dark:text-amber-200 flex items-center">
+                  <LightbulbIcon size={20} className="mr-2 text-amber-500" />
+                  {t('recommendedForYou')}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowRecommendations(!showRecommendations)}
+                  className="text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 flex items-center text-sm"
+                >
+                  {showRecommendations ? (
+                    <>
+                      {t('hide')} <ChevronUpIcon size={16} className="ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      {t('suggested')} <ChevronDownIcon size={16} className="ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {showRecommendations && (
+                <div className="space-y-3">
+                  {/* System Recommendations */}
+                  {!formData.system_id && recommendations.recommended_systems.length > 0 && (
+                    <div>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">{t('system')}:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {recommendations.recommended_systems.map((rec) => (
+                          <button
+                            key={rec.system_id}
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, system_id: rec.system_id.toString() }));
+                              loadSubsystems(rec.system_id);
+                            }}
+                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-gray-700 border border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/30 transition-colors"
+                            title={rec.reason}
+                          >
+                            {rec.system_name}
+                            <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
+                              ({rec.system_code})
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        {recommendations.recommended_systems[0]?.reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Role Recommendations */}
+                  {formData.system_id && recommendations.recommended_roles.length > 0 && (
+                    <div>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">{t('accessRole')}:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {recommendations.recommended_roles.map((rec) => (
+                          <button
+                            key={rec.access_role_id}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, access_role_id: rec.access_role_id.toString() }))}
+                            className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                              formData.access_role_id === rec.access_role_id.toString()
+                                ? 'bg-amber-500 text-white border border-amber-500'
+                                : 'bg-white dark:bg-gray-700 border border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-800/30'
+                            }`}
+                            title={rec.reason}
+                          >
+                            {rec.role_name}
+                            <span className={`ml-1.5 text-xs ${
+                              formData.access_role_id === rec.access_role_id.toString()
+                                ? 'text-amber-100'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}>
+                              ({rec.access_level})
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        {recommendations.recommended_roles[0]?.reason}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* User */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -445,9 +657,40 @@ function CreateRequestPage() {
               ))}
             </select>
             {selectedSystem && (
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {selectedSystem.description}
-              </p>
+              <>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  {selectedSystem.description}
+                </p>
+                {(selectedSystem.criticality_level === 'high' || selectedSystem.criticality_level === 'critical') && (
+                  <div className={`mt-2 p-3 rounded-lg flex items-start ${
+                    selectedSystem.criticality_level === 'critical'
+                      ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800'
+                      : 'bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800'
+                  }`}>
+                    <svg className={`w-5 h-5 mr-2 flex-shrink-0 ${
+                      selectedSystem.criticality_level === 'critical' ? 'text-red-500' : 'text-orange-500'
+                    }`} fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className={`text-sm font-medium ${
+                        selectedSystem.criticality_level === 'critical'
+                          ? 'text-red-800 dark:text-red-200'
+                          : 'text-orange-800 dark:text-orange-200'
+                      }`}>
+                        {t('criticalSystemInfo')}: {selectedSystem.criticality_level === 'critical' ? t('criticalityCritical') : t('criticalityHigh')}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        selectedSystem.criticality_level === 'critical'
+                          ? 'text-red-700 dark:text-red-300'
+                          : 'text-orange-700 dark:text-orange-300'
+                      }`}>
+                        {t('criticalSystemWarning')}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -507,6 +750,75 @@ function CreateRequestPage() {
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                 {selectedRole.description}
               </p>
+            )}
+
+            {/* SoD Violations Warning */}
+            {checkingSod && (
+              <div className="mt-3 text-sm text-gray-500 dark:text-gray-400 flex items-center">
+                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {t('checkingSod')}...
+              </div>
+            )}
+
+            {sodViolations.length > 0 && (
+              <div className={`mt-3 p-4 rounded-lg border ${
+                sodHardBlock
+                  ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700'
+                  : 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700'
+              }`}>
+                <div className="flex items-start">
+                  <svg className={`w-5 h-5 mr-3 flex-shrink-0 ${
+                    sodHardBlock ? 'text-red-500' : 'text-yellow-500'
+                  }`} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <h4 className={`font-semibold ${
+                      sodHardBlock
+                        ? 'text-red-800 dark:text-red-200'
+                        : 'text-yellow-800 dark:text-yellow-200'
+                    }`}>
+                      {sodHardBlock ? t('sodViolationBlocked') : t('sodViolationWarning')}
+                    </h4>
+                    <p className={`text-sm mt-1 ${
+                      sodHardBlock
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-yellow-700 dark:text-yellow-300'
+                    }`}>
+                      {sodHardBlock
+                        ? t('sodViolationBlockedDesc')
+                        : t('sodViolationWarningDesc')
+                      }
+                    </p>
+                    <ul className="mt-3 space-y-2">
+                      {sodViolations.map((violation, idx) => (
+                        <li key={idx} className={`text-sm flex items-start ${
+                          sodHardBlock
+                            ? 'text-red-700 dark:text-red-300'
+                            : 'text-yellow-700 dark:text-yellow-300'
+                        }`}>
+                          <span className="font-medium mr-2">\u2022</span>
+                          <div>
+                            <span className="font-medium">{violation.conflict_name}</span>
+                            <br />
+                            <span className="text-xs opacity-80">
+                              {violation.requested_role_name} ({violation.requested_role_system})
+                              {' ↔ '}
+                              {violation.existing_role_name} ({violation.existing_role_system})
+                            </span>
+                            {violation.description && (
+                              <p className="text-xs mt-1 opacity-70">{violation.description}</p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
@@ -651,7 +963,7 @@ function CreateRequestPage() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || success || formData.target_user_ids.length === 0}
+              disabled={loading || success || formData.target_user_ids.length === 0 || sodHardBlock}
             >
               {loading
                 ? t('creating')

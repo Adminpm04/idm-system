@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
-from app.api.endpoints import auth, users, systems, requests, admin, subsystems, approval_chain, export, dashboard_cards
+from app.api.endpoints import auth, users, systems, requests, admin, subsystems, approval_chain, export, dashboard_cards, sod
 import os
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -35,6 +36,7 @@ app.include_router(requests.router, prefix="/api/requests", tags=["Requests"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(dashboard_cards.router, prefix="/api/dashboard-cards", tags=["Dashboard Cards"])
+app.include_router(sod.router, prefix="/api/sod", tags=["Segregation of Duties"])
 
 
 @app.get("/")

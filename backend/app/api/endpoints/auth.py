@@ -253,8 +253,13 @@ async def login(
         code = generate_2fa_code()
         session_token = store_2fa_code(user.id, code)
 
-        # In production, send code via email/SMS
-        # For now, we'll include it in the response for testing (REMOVE IN PRODUCTION!)
+        # Send code via email
+        from app.core.email import send_2fa_email
+        email_sent = send_2fa_email(user.email, code, user.full_name)
+
+        if not email_sent:
+            print(f"[2FA] Warning: Failed to send email to {user.email}")
+
         print(f"2FA Code for {user.username}: {code}")  # Log for debugging
 
         return {
