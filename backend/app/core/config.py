@@ -29,13 +29,18 @@ class Settings(BaseSettings):
     SMTP_PORT: Optional[int] = None
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: Optional[str] = None
+
+    # 2FA Settings
+    TWOFA_CODE_EXPIRE_MINUTES: int = 5
+    TWOFA_ADMIN_EMAIL: Optional[str] = None
 
     # LDAP / Active Directory
-    LDAP_ENABLED: bool = True
-    LDAP_SERVER: str = "ldap://172.18.69.3:389"
-    LDAP_BASE_DN: str = "DC=corp,DC=orien,DC=tj"
-    LDAP_BIND_DN: str = "tech_idm@corp.orien.tj"
-    LDAP_BIND_PASSWORD: str = "02uTS3JkHhv62k9jzT2O"
+    LDAP_ENABLED: bool = False
+    LDAP_SERVER: str = ""
+    LDAP_BASE_DN: str = ""
+    LDAP_BIND_DN: str = ""
+    LDAP_BIND_PASSWORD: str = ""
     LDAP_USER_SEARCH_BASE: Optional[str] = None  # If None, uses LDAP_BASE_DN
     LDAP_USER_FILTER: str = "(sAMAccountName={username})"
     LDAP_USE_SSL: bool = False

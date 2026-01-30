@@ -41,3 +41,7 @@ Thumbs.db
 *.backup
 *.jsuy
 test-*.html
+
+# Uploads (user files, attachments)
+uploads/
+backend/uploads/

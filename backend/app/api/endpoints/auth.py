@@ -247,21 +247,36 @@ async def login(
             detail="Your account is disabled in AD. Please contact IT support.",
         )
 
-    # Generate 2FA code
-    code = generate_2fa_code()
-    session_token = store_2fa_code(user.id, code)
+    # Check if 2FA is required (only for admins, not demo users)
+    if user.is_superuser and not user.is_demo:
+        # Generate 2FA code
+        code = generate_2fa_code()
+        session_token = store_2fa_code(user.id, code)
 
-    # In production, send code via email/SMS
-    # For now, we'll include it in the response for testing (REMOVE IN PRODUCTION!)
-    print(f"2FA Code for {user.username}: {code}")  # Log for debugging
+        # In production, send code via email/SMS
+        # For now, we'll include it in the response for testing (REMOVE IN PRODUCTION!)
+        print(f"2FA Code for {user.username}: {code}")  # Log for debugging
+
+        return {
+            "requires_2fa": True,
+            "session_token": session_token,
+            "code_expiry_seconds": TWO_FA_CODE_EXPIRY,
+            "message": "Verification code sent",
+            # TEMPORARY: Include code for testing - REMOVE IN PRODUCTION!
+            "_debug_code": code
+        }
+
+    # Regular users and demo users - direct login without 2FA
+    user.last_login = datetime.now(timezone.utc)
+    db.commit()
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
 
     return {
-        "requires_2fa": True,
-        "session_token": session_token,
-        "code_expiry_seconds": TWO_FA_CODE_EXPIRY,
-        "message": "Verification code sent",
-        # TEMPORARY: Include code for testing - REMOVE IN PRODUCTION!
-        "_debug_code": code
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
     }
 
 
