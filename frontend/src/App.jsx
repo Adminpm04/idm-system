@@ -1,7 +1,8 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
-import { authAPI, requestsAPI } from './services/api';
+import { authAPI, requestsAPI, pushAPI } from './services/api';
 import { translations } from './i18n/translations';
+import { useNotifications } from './hooks/useNotifications';
 
 // Import pages
 import CreateRequestPage from './pages/CreateRequest';
@@ -701,11 +702,164 @@ function LoginPage() {
   );
 }
 
+// Notification Toggle Button with Web Push
+function NotificationToggle() {
+  const { t } = useLanguage();
+  const [isActive, setIsActive] = useState(false);
+  const [isDenied, setIsDenied] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Check subscription status on mount
+  useEffect(() => {
+    checkSubscription();
+  }, []);
+
+  const checkSubscription = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      setIsActive(!!subscription);
+      setIsDenied(Notification.permission === 'denied');
+    } catch (e) {
+      console.error('Check subscription error:', e);
+    }
+  };
+
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const handleClick = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Ваш браузер не поддерживает push-уведомления');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Register service worker
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      if (isActive) {
+        // Unsubscribe
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          try {
+            await pushAPI.unsubscribe(subscription.endpoint);
+          } catch (e) {}
+        }
+        setIsActive(false);
+        localStorage.removeItem('push_enabled');
+      } else {
+        // Request permission and subscribe
+        const permission = await Notification.requestPermission();
+
+        if (permission === 'granted') {
+          // Get VAPID key from server
+          const vapidResponse = await pushAPI.getVapidKey();
+          const vapidPublicKey = vapidResponse.data.public_key;
+
+          // Subscribe to push
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+          });
+
+          // Send subscription to server
+          const subJson = subscription.toJSON();
+          await pushAPI.subscribe({
+            endpoint: subJson.endpoint,
+            keys: subJson.keys
+          });
+
+          setIsActive(true);
+          setIsDenied(false);
+          localStorage.setItem('push_enabled', 'true');
+
+          // Show test notification
+          new Notification('Push-уведомления включены', {
+            body: 'Вы будете получать уведомления даже при закрытом браузере',
+            icon: '/vite.svg'
+          });
+        } else if (permission === 'denied') {
+          setIsDenied(true);
+          alert('Уведомления заблокированы.\n\nЧтобы включить:\n1. Нажмите на 🔒 слева от адреса\n2. Найдите "Уведомления"\n3. Выберите "Разрешить"');
+        }
+      }
+    } catch (e) {
+      console.error('Push subscription error:', e);
+      alert('Ошибка при настройке уведомлений: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className={`p-2 rounded-lg transition-all duration-300 relative ${
+        loading
+          ? 'bg-white/10 opacity-50'
+          : isActive
+            ? 'bg-green-500/20 hover:bg-green-500/30'
+            : isDenied
+              ? 'bg-red-500/20 opacity-50'
+              : 'bg-white/10 hover:bg-white/20'
+      }`}
+      title={
+        loading
+          ? 'Загрузка...'
+          : isDenied
+            ? (t('notificationsDenied') || 'Уведомления заблокированы')
+            : isActive
+              ? (t('notificationsOn') || 'Push-уведомления включены')
+              : (t('notificationsOff') || 'Включить push-уведомления')
+      }
+    >
+      {loading ? (
+        <svg className="w-5 h-5 text-white/70 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      ) : isActive ? (
+        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+        </svg>
+      ) : (
+        <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      )}
+      {isActive && (
+        <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+      )}
+    </button>
+  );
+}
+
 // Layout
 function Layout({ children }) {
   const { user, logout } = useAuth();
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const { t } = useLanguage();
+
+  // Enable notifications in layout
+  useNotifications(true);
 
   useEffect(() => {
     const fetchPendingApprovals = async () => {
@@ -717,6 +871,10 @@ function Layout({ children }) {
       }
     };
     fetchPendingApprovals();
+
+    // Also refresh count every 60 seconds
+    const interval = setInterval(fetchPendingApprovals, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -763,6 +921,7 @@ function Layout({ children }) {
             </div>
 
             <div className="flex items-center space-x-3">
+              <NotificationToggle />
               <LanguageToggle variant="header" />
               <ThemeToggle />
               <span className="text-sm hidden md:inline">{user?.full_name}</span>

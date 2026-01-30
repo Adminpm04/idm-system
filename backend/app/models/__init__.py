@@ -4,6 +4,7 @@ from app.models.request import AccessRequest, Approval, RequestComment, AuditLog
 from app.models.recertification import AccessRecertification, RecertificationStatus
 from app.models.dashboard_card import DashboardCard, IconType
 from app.models.sod import SodConflict, SodSeverity
+from app.models.push_subscription import PushSubscription
 
 __all__ = [
     "User",
@@ -28,5 +29,6 @@ __all__ = [
     "IconType",
     "SodConflict",
     "SodSeverity",
+    "PushSubscription",
 ]
 from .subsystem import Subsystem

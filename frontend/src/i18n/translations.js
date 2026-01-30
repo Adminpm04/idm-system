@@ -476,6 +476,14 @@ export const translations = {
     sodRuleDeleted: 'Правило SoD удалено',
     confirmDeleteSodRule: 'Удалить это правило SoD?',
     noSodRules: 'Правила SoD не настроены',
+
+    // Browser Notifications
+    notificationsOn: 'Уведомления включены',
+    notificationsOff: 'Включить уведомления',
+    notificationsDenied: 'Уведомления заблокированы в браузере',
+    newApprovalNotification: 'Новая заявка на согласование',
+    newApprovalsNotification: 'новых заявок на согласование',
+    clickToView: 'Нажмите, чтобы перейти к согласованию',
   },
 
   en: {
@@ -955,5 +963,13 @@ export const translations = {
     sodRuleDeleted: 'SoD rule deleted',
     confirmDeleteSodRule: 'Delete this SoD rule?',
     noSodRules: 'No SoD rules configured',
+
+    // Browser Notifications
+    notificationsOn: 'Notifications enabled',
+    notificationsOff: 'Enable notifications',
+    notificationsDenied: 'Notifications blocked in browser',
+    newApprovalNotification: 'New approval request',
+    newApprovalsNotification: 'new approval requests',
+    clickToView: 'Click to view approvals',
   }
 };

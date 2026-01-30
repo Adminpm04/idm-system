@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     
     # Access recertification
     RECERTIFICATION_PERIOD_MONTHS: int = 6
+
+    # Web Push (VAPID) - keys in base64url format
+    VAPID_PUBLIC_KEY: str = "BMXiBbzZwYqfIJMyJK6nUsA3fWle2XOIbVxz6Xj6u8W9E_eglNej3-V4hYL1BdGolVkvhJ6zxRqzQvWUl6uSuVs"
+    VAPID_PRIVATE_KEY: str = "AHorlM62SL_FO0eOjDk7O7DhoR-HL0o7jdK7qbc4oBw"
+    VAPID_CLAIMS_EMAIL: str = "admin@idm-system.local"
     
     @property
     def cors_origins(self) -> list:

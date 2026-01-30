@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: API_URL,
@@ -233,4 +233,12 @@ export const sodAPI = {
   createConflict: (data) => api.post('/sod/conflicts', data),
   updateConflict: (id, data) => api.put('/sod/conflicts/' + id, data),
   deleteConflict: (id) => api.delete('/sod/conflicts/' + id),
+};
+
+// Push Notifications API
+export const pushAPI = {
+  getVapidKey: () => api.get('/push/vapid-public-key'),
+  subscribe: (subscription) => api.post('/push/subscribe', subscription),
+  unsubscribe: (endpoint) => api.delete('/push/unsubscribe', { params: { endpoint } }),
+  getSubscriptions: () => api.get('/push/subscriptions'),
 };

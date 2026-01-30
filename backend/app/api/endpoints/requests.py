@@ -784,12 +784,25 @@ async def submit_request(
     # Update status
     request.status = RequestStatus.IN_REVIEW
     request.submitted_at = datetime.now(timezone.utc)
-    
+
     # Create audit log
     create_audit_log(db, request.id, current_user.id, "submitted", "Request submitted for approval")
-    
+
     db.commit()
-    
+
+    # Send push notifications to approvers
+    try:
+        from app.api.endpoints.push import send_push_to_approvers
+        send_push_to_approvers(
+            db=db,
+            request_id=request.id,
+            system_name=request.system.name if request.system else "Unknown",
+            requester_name=current_user.full_name
+        )
+    except Exception as e:
+        # Don't fail the request if push fails
+        print(f"Push notification error: {e}")
+
     return {"message": "Request submitted successfully"}
 
 
