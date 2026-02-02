@@ -199,8 +199,6 @@ export const approvalChainAPI = {
 };
 
 export const exportAPI = {
-  pdf: () => api.get('/export/pdf', { responseType: 'blob' }),
-  word: () => api.get('/export/word', { responseType: 'blob' }),
   excel: () => api.get('/export/excel', { responseType: 'blob' }),
 };
 

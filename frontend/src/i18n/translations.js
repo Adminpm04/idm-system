@@ -289,6 +289,9 @@ export const translations = {
 
     // Export
     export: 'Экспорт',
+    exportExcel: 'Экспорт в Excel',
+    exportToExcel: 'Экспортировать в Excel',
+    exportError: 'Ошибка экспорта',
     selectFormat: 'Выберите формат',
     pdfSummary: 'Сводная таблица заявок',
     wordDetailed: 'Детальный отчёт',
@@ -839,6 +842,9 @@ export const translations = {
 
     // Export
     export: 'Export',
+    exportExcel: 'Export to Excel',
+    exportToExcel: 'Export to Excel',
+    exportError: 'Export error',
     selectFormat: 'Select Format',
     pdfSummary: 'Summary table of requests',
     wordDetailed: 'Detailed report',
