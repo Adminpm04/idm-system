@@ -125,6 +125,11 @@ def send_push_notification(
 
     Returns number of notifications sent successfully.
     """
+    # Check if VAPID is configured
+    if not settings.VAPID_PUBLIC_KEY or not settings.VAPID_PRIVATE_KEY:
+        logger.warning("VAPID keys not configured. Push notifications disabled.")
+        return 0
+
     from pywebpush import webpush, WebPushException
 
     subscriptions = db.query(PushSubscription).filter(

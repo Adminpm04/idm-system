@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
 import os
@@ -308,16 +308,22 @@ async def get_my_requests(
     db: Session = Depends(get_db)
 ):
     """Get current user's requests"""
-    query = db.query(AccessRequest).filter(
+    query = db.query(AccessRequest).options(
+        joinedload(AccessRequest.requester),
+        joinedload(AccessRequest.target_user),
+        joinedload(AccessRequest.system),
+        joinedload(AccessRequest.subsystem),
+        joinedload(AccessRequest.access_role)
+    ).filter(
         AccessRequest.requester_id == current_user.id
     )
-    
+
     if status_filter:
         query = query.filter(AccessRequest.status == status_filter)
-    
+
     requests = query.order_by(AccessRequest.created_at.desc()).offset(skip).limit(limit).all()
-    
-    # Enrich with names
+
+    # Enrich with names (now using pre-loaded relationships)
     result = []
     for req in requests:
         req_dict = AccessRequestResponse.model_validate(req).model_dump()
@@ -344,18 +350,24 @@ async def get_my_pending_approvals(
         Approval.approver_id == current_user.id,
         Approval.status == ApprovalStatus.PENDING
     ).all()
-    
+
     request_ids = [approval.request_id for approval in pending_approvals]
-    
+
     if not request_ids:
         return []
-    
-    requests = db.query(AccessRequest).filter(
+
+    requests = db.query(AccessRequest).options(
+        joinedload(AccessRequest.requester),
+        joinedload(AccessRequest.target_user),
+        joinedload(AccessRequest.system),
+        joinedload(AccessRequest.subsystem),
+        joinedload(AccessRequest.access_role)
+    ).filter(
         AccessRequest.id.in_(request_ids),
         AccessRequest.status == RequestStatus.IN_REVIEW
     ).order_by(AccessRequest.created_at).offset(skip).limit(limit).all()
-    
-    # Enrich with names
+
+    # Enrich with names (now using pre-loaded relationships)
     result = []
     for req in requests:
         req_dict = AccessRequestResponse.model_validate(req).model_dump()
@@ -396,8 +408,14 @@ async def get_my_decisions(
     if not request_ids:
         return []
 
-    # Preserve order from approvals (by decision_date)
-    requests = db.query(AccessRequest).filter(
+    # Preserve order from approvals (by decision_date) with eager loading
+    requests = db.query(AccessRequest).options(
+        joinedload(AccessRequest.requester),
+        joinedload(AccessRequest.target_user),
+        joinedload(AccessRequest.system),
+        joinedload(AccessRequest.subsystem),
+        joinedload(AccessRequest.access_role)
+    ).filter(
         AccessRequest.id.in_(request_ids)
     ).all()
 

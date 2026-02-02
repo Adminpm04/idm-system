@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     LDAP_USER_SEARCH_BASE: Optional[str] = None  # If None, uses LDAP_BASE_DN
     LDAP_USER_FILTER: str = "(sAMAccountName={username})"
     LDAP_USE_SSL: bool = False
+    LDAP_VERIFY_CERT: bool = False  # Set to True in production with proper CA cert
     LDAP_TIMEOUT: int = 10
     
     # Pagination
@@ -53,9 +54,10 @@ class Settings(BaseSettings):
     # Access recertification
     RECERTIFICATION_PERIOD_MONTHS: int = 6
 
-    # Web Push (VAPID) - keys in base64url format
-    VAPID_PUBLIC_KEY: str = "BMXiBbzZwYqfIJMyJK6nUsA3fWle2XOIbVxz6Xj6u8W9E_eglNej3-V4hYL1BdGolVkvhJ6zxRqzQvWUl6uSuVs"
-    VAPID_PRIVATE_KEY: str = "AHorlM62SL_FO0eOjDk7O7DhoR-HL0o7jdK7qbc4oBw"
+    # Web Push (VAPID) - keys should be set via environment variables
+    # Generate new keys: npx web-push generate-vapid-keys
+    VAPID_PUBLIC_KEY: str = ""  # Set via VAPID_PUBLIC_KEY env var
+    VAPID_PRIVATE_KEY: str = ""  # Set via VAPID_PRIVATE_KEY env var
     VAPID_CLAIMS_EMAIL: str = "admin@idm-system.local"
     
     @property

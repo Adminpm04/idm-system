@@ -149,7 +149,13 @@ class LDAPAuthService:
     def _get_server(self) -> Server:
         """Create LDAP server connection object"""
         if self.use_ssl:
-            tls = Tls(validate=ssl.CERT_NONE)
+            if settings.LDAP_VERIFY_CERT:
+                # Production: verify SSL certificates
+                tls = Tls(validate=ssl.CERT_REQUIRED)
+            else:
+                # Development/Testing: skip certificate validation (INSECURE!)
+                logger.warning("LDAP SSL certificate validation is disabled. Enable LDAP_VERIFY_CERT in production!")
+                tls = Tls(validate=ssl.CERT_NONE)
             return Server(self.server_url, use_ssl=True, tls=tls, get_info=ALL, connect_timeout=self.timeout)
         return Server(self.server_url, get_info=ALL, connect_timeout=self.timeout)
 
