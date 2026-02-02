@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 import logging
@@ -23,6 +23,38 @@ router = APIRouter()
 
 # In-memory store for 2FA codes (in production, use Redis)
 _2fa_codes = {}
+
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    """Set httpOnly cookies for JWT tokens"""
+    # Access token cookie (shorter lived)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+        domain=settings.COOKIE_DOMAIN
+    )
+    # Refresh token cookie (longer lived)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/auth/refresh",  # Only sent to refresh endpoint
+        domain=settings.COOKIE_DOMAIN
+    )
+
+
+def clear_auth_cookies(response: Response):
+    """Clear auth cookies on logout"""
+    response.delete_cookie(key="access_token", path="/", domain=settings.COOKIE_DOMAIN)
+    response.delete_cookie(key="refresh_token", path="/api/auth/refresh", domain=settings.COOKIE_DOMAIN)
 
 # 2FA code expiration time in seconds
 TWO_FA_CODE_EXPIRY = 180  # 3 minutes
@@ -188,6 +220,7 @@ def create_user_from_ad(db: Session, ad_data: dict) -> User:
 @limiter.limit("5/minute")  # Max 5 login attempts per minute per IP
 async def login(
     request: Request,
+    response: Response,
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -285,6 +318,9 @@ async def login(
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
+    # Set httpOnly cookies
+    set_auth_cookies(response, access_token, refresh_token)
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -296,6 +332,7 @@ async def login(
 @limiter.limit("10/minute")  # Max 10 2FA attempts per minute per IP
 async def verify_2fa(
     request: Request,
+    response: Response,
     verify_data: VerifyCodeRequest,
     db: Session = Depends(get_db)
 ):
@@ -323,6 +360,9 @@ async def verify_2fa(
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
+    # Set httpOnly cookies
+    set_auth_cookies(response, access_token, refresh_token)
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -330,35 +370,56 @@ async def verify_2fa(
     }
 
 
+@router.post("/logout")
+async def logout(response: Response):
+    """Logout endpoint - clears auth cookies"""
+    clear_auth_cookies(response)
+    return {"message": "Logged out successfully"}
+
+
 @router.post("/refresh", response_model=Token)
-async def refresh_token(
-    refresh_token: str,
+async def refresh_token_endpoint(
+    request: Request,
+    response: Response,
+    refresh_token_body: str = None,
     db: Session = Depends(get_db)
 ):
-    """Refresh access token"""
+    """Refresh access token - reads from cookie or body"""
     from app.core.security import decode_token
-    
-    payload = decode_token(refresh_token)
-    
+
+    # Try to get refresh token from cookie first, then body
+    token = request.cookies.get("refresh_token") or refresh_token_body
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token required",
+        )
+
+    payload = decode_token(token)
+
     if payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type",
         )
-    
+
     user_id = payload.get("sub")
     user = db.query(User).filter(User.id == user_id).first()
-    
+
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
-    
+
     # Create new tokens
     access_token = create_access_token({"sub": str(user.id)})
     new_refresh_token = create_refresh_token({"sub": str(user.id)})
-    
+
+    # Set httpOnly cookies
+    set_auth_cookies(response, access_token, new_refresh_token)
+
     return {
         "access_token": access_token,
         "refresh_token": new_refresh_token,

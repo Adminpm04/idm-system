@@ -5,6 +5,7 @@ const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000, // 30 seconds timeout
+  withCredentials: true, // Send httpOnly cookies with requests
   headers: {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -55,36 +56,32 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      // Try to refresh - cookies will be sent automatically, also try localStorage as fallback
       const refreshToken = localStorage.getItem('refresh_token');
-      if (refreshToken) {
-        try {
-          const response = await axios.post(`${API_URL}/auth/refresh`, {
-            refresh_token: refreshToken
-          });
-          const newToken = response.data.access_token;
-          localStorage.setItem('access_token', newToken);
-          if (response.data.refresh_token) {
-            localStorage.setItem('refresh_token', response.data.refresh_token);
-          }
-          processQueue(null, newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return api(originalRequest);
-        } catch (refreshError) {
-          processQueue(refreshError, null);
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          if (window.location.pathname !== '/login') {
-            window.location.assign('/login');
-          }
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
+      try {
+        const response = await axios.post(`${API_URL}/auth/refresh`,
+          refreshToken ? { refresh_token: refreshToken } : {},
+          { withCredentials: true }
+        );
+        const newToken = response.data.access_token;
+        // Store in localStorage as backup for backward compatibility
+        localStorage.setItem('access_token', newToken);
+        if (response.data.refresh_token) {
+          localStorage.setItem('refresh_token', response.data.refresh_token);
         }
-      } else {
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
         localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         if (window.location.pathname !== '/login') {
           window.location.assign('/login');
         }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     return Promise.reject(error);
@@ -98,7 +95,8 @@ export const authAPI = {
     return api.post('/auth/verify-2fa', payload);
   },
   getMe: () => api.get('/auth/me'),
-  refresh: (refreshToken) => api.post('/auth/refresh', { refresh_token: refreshToken }),
+  refresh: (refreshToken) => api.post('/auth/refresh', refreshToken ? { refresh_token: refreshToken } : {}),
+  logout: () => api.post('/auth/logout'),
 };
 
 export const usersAPI = {

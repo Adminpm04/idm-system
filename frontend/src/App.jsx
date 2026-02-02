@@ -159,18 +159,14 @@ function AuthProvider({ children }) {
   const { t } = useLanguage();
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      authAPI.getMe()
-        .then(res => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    // Try to get user info - will use httpOnly cookie or localStorage token
+    authAPI.getMe()
+      .then(res => setUser(res.data))
+      .catch(() => {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (username, password, userData = null) => {
@@ -187,7 +183,13 @@ function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call logout endpoint to clear httpOnly cookies
+      await authAPI.logout();
+    } catch (e) {
+      // Ignore errors - still clear local state
+    }
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     setUser(null);

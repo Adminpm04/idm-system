@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     TWOFA_CODE_EXPIRE_MINUTES: int = 5
     TWOFA_ADMIN_EMAIL: Optional[str] = None
 
+    # Cookie Settings (for httpOnly JWT tokens)
+    COOKIE_SECURE: bool = False  # Set to True in production with HTTPS
+    COOKIE_SAMESITE: str = "lax"  # "strict", "lax", or "none"
+    COOKIE_DOMAIN: Optional[str] = None  # None means current domain only
+
     # LDAP / Active Directory
     LDAP_ENABLED: bool = False
     LDAP_SERVER: str = ""
