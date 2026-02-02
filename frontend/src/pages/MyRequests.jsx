@@ -15,12 +15,36 @@ function MyRequestsListPage() {
   const { t } = useLanguage();
 
   useEffect(() => {
-    if (activeTab === 'my-requests') {
-      loadRequests();
-    } else {
-      loadDecisions();
-    }
-  }, [filter, activeTab, decisionFilter]);
+    let isMounted = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        if (activeTab === 'my-requests') {
+          const params = filter !== 'all' ? { status_filter: filter } : {};
+          const response = await requestsAPI.myRequests(params);
+          if (isMounted) setRequests(response.data);
+        } else {
+          const params = decisionFilter !== 'all' ? { decision_filter: decisionFilter } : {};
+          const response = await requestsAPI.myDecisions(params);
+          if (isMounted) setDecisions(response.data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error loading data:', err);
+          setError(t('errorLoading'));
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filter, activeTab, decisionFilter, t]);
 
   const loadRequests = async () => {
     setLoading(true);

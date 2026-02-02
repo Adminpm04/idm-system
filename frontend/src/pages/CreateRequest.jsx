@@ -93,11 +93,33 @@ function CreateRequestPage() {
   const [accessRoles, setAccessRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
 
-  // Load systems and users on mount
+  // Load systems and users on mount with cleanup
   useEffect(() => {
-    loadSystems();
-    loadUsers();
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      try {
+        const [systemsRes, usersRes] = await Promise.all([
+          systemsAPI.list(),
+          usersAPI.list()
+        ]);
+        if (isMounted) {
+          setSystems(systemsRes.data);
+          setUsers(usersRes.data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error loading initial data:', err);
+        }
+      }
+    };
+
+    loadInitialData();
     loadRecommendations();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Load role recommendations when system changes

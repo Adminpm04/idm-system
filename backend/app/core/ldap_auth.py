@@ -39,6 +39,27 @@ def normalize_guid(guid_value) -> Optional[str]:
         return None
 
 
+def escape_ldap_filter(value: str) -> str:
+    """
+    Escape special characters in LDAP filter values to prevent injection.
+    RFC 4515 defines these special characters that must be escaped.
+    """
+    if not value:
+        return value
+    # Characters that need escaping in LDAP filters
+    escape_chars = {
+        '\\': r'\5c',
+        '*': r'\2a',
+        '(': r'\28',
+        ')': r'\29',
+        '\x00': r'\00',
+    }
+    result = value
+    for char, escaped in escape_chars.items():
+        result = result.replace(char, escaped)
+    return result
+
+
 class LDAPCache:
     """Thread-safe cache for LDAP queries"""
 
@@ -171,7 +192,9 @@ class LDAPAuthService:
                 receive_timeout=self.timeout
             )
 
-            search_filter = self.user_filter.format(username=username)
+            # Escape username to prevent LDAP injection
+            safe_username = escape_ldap_filter(username)
+            search_filter = self.user_filter.format(username=safe_username)
             conn.search(
                 search_base=self.user_search_base,
                 search_filter=search_filter,
@@ -223,7 +246,9 @@ class LDAPAuthService:
             )
 
             # If bind successful, search for user attributes
-            search_filter = self.user_filter.format(username=username)
+            # Escape username to prevent LDAP injection
+            safe_username = escape_ldap_filter(username)
+            search_filter = self.user_filter.format(username=safe_username)
             conn.search(
                 search_base=self.user_search_base,
                 search_filter=search_filter,
@@ -319,9 +344,10 @@ class LDAPAuthService:
                 receive_timeout=self.timeout
             )
 
-            # Build search filter
+            # Build search filter with escaped query to prevent LDAP injection
             if query:
-                search_filter = f"(&(objectClass=user)(objectCategory=person)(|(sAMAccountName=*{query}*)(displayName=*{query}*)(mail=*{query}*)))"
+                safe_query = escape_ldap_filter(query)
+                search_filter = f"(&(objectClass=user)(objectCategory=person)(|(sAMAccountName=*{safe_query}*)(displayName=*{safe_query}*)(mail=*{safe_query}*)))"
             else:
                 search_filter = "(&(objectClass=user)(objectCategory=person)(sAMAccountName=*))"
 
@@ -412,7 +438,9 @@ class LDAPAuthService:
                 receive_timeout=self.timeout
             )
 
-            search_filter = self.user_filter.format(username=username)
+            # Escape username to prevent LDAP injection
+            safe_username = escape_ldap_filter(username)
+            search_filter = self.user_filter.format(username=safe_username)
             conn.search(
                 search_base=self.user_search_base,
                 search_filter=search_filter,
