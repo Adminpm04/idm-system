@@ -16,6 +16,7 @@ from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.ldap_auth import ldap_service
 from pydantic import BaseModel
+from typing import Optional
 import secrets
 import hashlib
 
@@ -72,6 +73,9 @@ class TwoFactorResponse(BaseModel):
 class VerifyCodeRequest(BaseModel):
     session_token: str
     code: str
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: Optional[str] = None
 
 def generate_2fa_code():
     """Generate a 6-digit verification code"""
@@ -381,14 +385,16 @@ async def logout(response: Response):
 async def refresh_token_endpoint(
     request: Request,
     response: Response,
-    refresh_token_body: str = None,
+    body: Optional[RefreshTokenRequest] = None,
     db: Session = Depends(get_db)
 ):
-    """Refresh access token - reads from cookie or body"""
+    """Refresh access token - reads from cookie or JSON body"""
     from app.core.security import decode_token
 
-    # Try to get refresh token from cookie first, then body
-    token = request.cookies.get("refresh_token") or refresh_token_body
+    # Try to get refresh token from cookie first, then from JSON body
+    token = request.cookies.get("refresh_token")
+    if not token and body and body.refresh_token:
+        token = body.refresh_token
 
     if not token:
         raise HTTPException(
