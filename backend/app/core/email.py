@@ -1,9 +1,12 @@
 import smtplib
 import secrets
 import string
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def generate_2fa_code() -> str:
@@ -56,17 +59,18 @@ def send_2fa_email(to_email: str, code: str, username: str) -> bool:
         msg.attach(part2)
 
         # Send email
-        if settings.SMTP_PASSWORD:
+        if settings.SMTP_PASSWORD and settings.SMTP_HOST:
             with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
                 server.starttls()
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 server.sendmail(settings.SMTP_FROM_EMAIL, to_email, msg.as_string())
+            logger.info(f"2FA email sent to {to_email}")
             return True
         else:
-            # If no SMTP password, log the code (for testing)
-            print(f"[2FA] Code for {username}: {code} (email not sent - no SMTP password)")
-            return True
+            # SMTP not configured - this is an error in production
+            logger.error(f"SMTP not configured. Cannot send 2FA email to {to_email}")
+            return False
 
     except Exception as e:
-        print(f"[2FA] Error sending email: {e}")
+        logger.error(f"Failed to send 2FA email to {to_email}: {e}")
         return False

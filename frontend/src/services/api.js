@@ -17,15 +17,6 @@ api.interceptors.request.use((config) => {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // Debug logging
-  if (config.url?.includes('verify-2fa')) {
-    console.log('[AXIOS DEBUG] Request config:', {
-      url: config.url,
-      method: config.method,
-      data: config.data,
-      dataStringified: JSON.stringify(config.data)
-    });
-  }
   return config;
 });
 
@@ -103,7 +94,6 @@ export const authAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }),
   verify2fa: (sessionToken, code) => {
     const payload = { session_token: String(sessionToken), code: String(code) };
-    console.log('[DEBUG] verify2fa payload:', payload);
     return api.post('/auth/verify-2fa', payload);
   },
   getMe: () => api.get('/auth/me'),

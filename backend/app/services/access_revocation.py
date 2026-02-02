@@ -5,9 +5,12 @@ from datetime import date, datetime, timezone
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
+import logging
 
 from app.models.request import AccessRequest, RequestStatus
 from app.models import AuditLog
+
+logger = logging.getLogger(__name__)
 
 
 def get_expired_accesses(db: Session) -> List[AccessRequest]:
@@ -75,7 +78,7 @@ def revoke_expired_access(db: Session, request: AccessRequest, auto: bool = True
         return True
     except Exception as e:
         db.rollback()
-        print(f"Error revoking access for request {request.id}: {e}")
+        logger.error(f"Error revoking access for request {request.id}: {e}")
         return False
 
 

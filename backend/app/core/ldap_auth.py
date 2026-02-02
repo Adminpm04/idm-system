@@ -5,9 +5,12 @@ import ssl
 import uuid
 import hashlib
 import threading
+import logging
 from datetime import datetime
 from cachetools import TTLCache
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # AD userAccountControl flags
@@ -179,7 +182,7 @@ class LDAPAuthService:
             return None
 
         except LDAPException as e:
-            print(f"LDAP search error: {e}")
+            logger.error(f"LDAP search error: {e}")
             return None
 
     def authenticate(self, username: str, password: str) -> Optional[Dict[str, Any]]:
@@ -258,13 +261,13 @@ class LDAPAuthService:
             return user_data
 
         except LDAPBindError as e:
-            print(f"LDAP bind failed for user {username}: {e}")
+            logger.warning(f"LDAP bind failed for user {username}: {e}")
             return None
         except LDAPException as e:
-            print(f"LDAP error for user {username}: {e}")
+            logger.error(f"LDAP error for user {username}: {e}")
             return None
         except Exception as e:
-            print(f"Unexpected error during LDAP auth for {username}: {e}")
+            logger.error(f"Unexpected error during LDAP auth for {username}: {e}")
             return None
 
     def test_connection(self) -> Dict[str, Any]:
@@ -449,7 +452,7 @@ class LDAPAuthService:
             return None
 
         except LDAPException as e:
-            print(f"LDAP search error: {e}")
+            logger.error(f"LDAP search error: {e}")
             return None
 
     def get_user_by_dn(self, dn: str) -> Optional[Dict[str, Any]]:
@@ -487,7 +490,7 @@ class LDAPAuthService:
             return None
 
         except LDAPException as e:
-            print(f"LDAP search by DN error: {e}")
+            logger.error(f"LDAP search by DN error: {e}")
             return None
 
     def get_all_users_for_sync(self) -> List[Dict[str, Any]]:
@@ -552,7 +555,7 @@ class LDAPAuthService:
             return users
 
         except LDAPException as e:
-            print(f"LDAP sync error: {e}")
+            logger.error(f"LDAP sync error: {e}")
             return []
 
     def clear_cache(self):

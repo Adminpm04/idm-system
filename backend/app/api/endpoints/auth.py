@@ -1,7 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
+import logging
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 from app.schemas.user import LoginRequest, Token, UserResponse
 from app.models import User
 from app.core.security import verify_password, create_access_token, create_refresh_token, get_password_hash
@@ -178,7 +185,9 @@ def create_user_from_ad(db: Session, ad_data: dict) -> User:
 
 
 @router.post("/login")
+@limiter.limit("5/minute")  # Max 5 login attempts per minute per IP
 async def login(
+    request: Request,
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -258,17 +267,15 @@ async def login(
         email_sent = send_2fa_email(user.email, code, user.full_name)
 
         if not email_sent:
-            print(f"[2FA] Warning: Failed to send email to {user.email}")
+            logger.warning(f"Failed to send 2FA email to {user.email}")
 
-        print(f"2FA Code for {user.username}: {code}")  # Log for debugging
+        logger.info(f"2FA code generated for user {user.username}")
 
         return {
             "requires_2fa": True,
             "session_token": session_token,
             "code_expiry_seconds": TWO_FA_CODE_EXPIRY,
-            "message": "Verification code sent",
-            # TEMPORARY: Include code for testing - REMOVE IN PRODUCTION!
-            "_debug_code": code
+            "message": "Verification code sent"
         }
 
     # Regular users and demo users - direct login without 2FA
@@ -286,7 +293,9 @@ async def login(
 
 
 @router.post("/verify-2fa", response_model=Token)
+@limiter.limit("10/minute")  # Max 10 2FA attempts per minute per IP
 async def verify_2fa(
+    request: Request,
     verify_data: VerifyCodeRequest,
     db: Session = Depends(get_db)
 ):

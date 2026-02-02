@@ -382,7 +382,6 @@ function LoginPage() {
   const [sessionToken, setSessionToken] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [timeLeft, setTimeLeft] = useState(180);
-  const [debugCode, setDebugCode] = useState(''); // Temporary for testing
 
   const { login } = useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -429,7 +428,6 @@ function LoginPage() {
         // Switch to 2FA step
         setSessionToken(response.data.session_token);
         setTimeLeft(response.data.code_expiry_seconds || 180);
-        setDebugCode(response.data._debug_code || ''); // Temporary for testing
         setStep('2fa');
         setVerificationCode('');
       } else {
@@ -640,13 +638,6 @@ function LoginPage() {
                     </p>
                   </div>
 
-                  {/* Debug code display - REMOVE IN PRODUCTION */}
-                  {debugCode && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
-                      <p className="text-xs text-yellow-600 dark:text-yellow-400">Debug: Your code is</p>
-                      <p className="text-2xl font-mono font-bold text-yellow-700 dark:text-yellow-300">{debugCode}</p>
-                    </div>
-                  )}
                 </div>
 
                 <div>

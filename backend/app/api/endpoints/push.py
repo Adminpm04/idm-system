@@ -5,8 +5,11 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 import json
+import logging
 
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 from app.api.deps import get_current_user
 from app.models import User, PushSubscription
 from app.core.config import settings
@@ -165,9 +168,9 @@ def send_push_notification(
             # Subscription may be invalid/expired
             if e.response and e.response.status_code in [404, 410]:
                 sub.is_active = False
-            print(f"Push error for user {user_id}: {e}")
+            logger.warning(f"Push error for user {user_id}: {e}")
         except Exception as e:
-            print(f"Push error: {e}")
+            logger.error(f"Push error: {e}")
 
     db.commit()
     return sent_count

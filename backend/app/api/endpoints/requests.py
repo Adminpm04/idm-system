@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 import os
 import uuid
 import shutil
+import logging
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 from app.schemas.request import (
     AccessRequestCreate, AccessRequestResponse, AccessRequestDetailResponse,
     AccessRequestSubmit, ApprovalDecision, RequestCommentCreate,
@@ -968,7 +971,7 @@ async def submit_request(
         )
     except Exception as e:
         # Don't fail the request if push fails
-        print(f"Push notification error: {e}")
+        logger.warning(f"Push notification error: {e}")
 
     return {"message": "Request submitted successfully"}
 
