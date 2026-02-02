@@ -99,18 +99,19 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-300"
+      className="relative p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-300 overflow-hidden group"
       title={isDark ? t('switchToLight') : t('switchToDark')}
     >
-      {isDark ? (
-        <svg className="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+      <div className={`transform transition-all duration-500 ${isDark ? 'rotate-0 scale-100' : 'rotate-90 scale-0'} absolute inset-0 flex items-center justify-center`}>
+        <svg className="w-5 h-5 text-yellow-300 drop-shadow-[0_0_8px_rgba(253,224,71,0.5)]" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
         </svg>
-      ) : (
-        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+      </div>
+      <div className={`transform transition-all duration-500 ${!isDark ? 'rotate-0 scale-100' : '-rotate-90 scale-0'}`}>
+        <svg className="w-5 h-5 text-white/90" fill="currentColor" viewBox="0 0 20 20">
           <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
         </svg>
-      )}
+      </div>
     </button>
   );
 }
@@ -878,37 +879,37 @@ function Layout({ children }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg transition-colors duration-300">
       {/* Header */}
-      <header className="bg-primary text-white shadow-lg">
+      <header className="bg-gradient-to-r from-primary to-primary-700 dark:from-gray-800 dark:to-gray-900 text-white shadow-lg dark:shadow-dark-lg dark:border-b dark:border-gray-700">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
-              <Link to="/" className="text-2xl font-bold flex items-center space-x-2">
-                <span>IDM</span>
+              <Link to="/" className="text-2xl font-bold flex items-center space-x-2 group">
+                <span className="group-hover:text-secondary transition-colors">IDM</span>
                 <span className="text-secondary">System</span>
               </Link>
 
               <nav className="hidden md:flex space-x-6">
-                <Link to="/" className="hover:text-secondary transition-colors">
+                <Link to="/" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('home')}
                 </Link>
-                <Link to="/my-requests" className="hover:text-secondary transition-colors">
+                <Link to="/my-requests" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('myRequests')}
                 </Link>
-                <Link to="/my-approvals" className="hover:text-secondary transition-colors relative flex items-center">
+                <Link to="/my-approvals" className="hover:text-secondary dark:hover:text-secondary transition-colors relative flex items-center py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('pendingApprovals')}
                   {pendingApprovalsCount > 0 && (
-                    <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                    <span className="ml-2 bg-red-500 dark:bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse shadow-lg">
                       {pendingApprovalsCount}
                     </span>
                   )}
                 </Link>
-                <Link to="/systems" className="hover:text-secondary transition-colors">
+                <Link to="/systems" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('systems')}
                 </Link>
                 {(user?.is_superuser || user?.is_demo) && (
-                  <Link to="/admin" className="hover:text-secondary transition-colors">
+                  <Link to="/admin" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                     {t('admin')}
                   </Link>
                 )}
@@ -924,8 +925,8 @@ function Layout({ children }) {
               <NotificationToggle />
               <LanguageToggle variant="header" />
               <ThemeToggle />
-              <span className="text-sm hidden md:inline">{user?.full_name}</span>
-              <button onClick={logout} className="btn btn-secondary text-sm">
+              <span className="text-sm hidden md:inline opacity-90">{user?.full_name}</span>
+              <button onClick={logout} className="btn btn-secondary text-sm shadow-md hover:shadow-lg">
                 {t('logout')}
               </button>
             </div>
@@ -948,27 +949,41 @@ function Dashboard() {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-primary dark:text-blue-400">{t('controlPanel')}</h1>
-        <p className="text-gray-600 dark:text-gray-400">{t('controlPanelDesc')}</p>
+        <div>
+          <h1 className="text-3xl font-bold text-primary dark:text-transparent dark:bg-gradient-to-r dark:from-blue-400 dark:to-cyan-400 dark:bg-clip-text">{t('controlPanel')}</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">{t('controlPanelDesc')}</p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link to="/create-request" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('newRequest')}</h3>
+          <Link to="/create-request" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 dark:bg-blue-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-primary dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">{t('newRequest')}</h3>
             <p className="text-gray-600 dark:text-gray-400">{t('requestAccess')}</p>
           </Link>
 
-          <Link to="/my-requests" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('myRequests')}</h3>
+          <Link to="/my-requests" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
+            <div className="w-10 h-10 rounded-lg bg-secondary/20 dark:bg-secondary/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-secondary-600 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">{t('myRequests')}</h3>
             <p className="text-gray-600 dark:text-gray-400">{t('viewStatuses')}</p>
           </Link>
 
-          <Link to="/my-approvals" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('pendingApprovals')}</h3>
+          <Link to="/my-approvals" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
+            <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">{t('pendingApprovals')}</h3>
             <p className="text-gray-600 dark:text-gray-400">{t('awaitingApproval')}</p>
           </Link>
 
-          <Link to="/systems" className="card hover:shadow-lg transition-shadow group">
-            <h3 className="text-xl font-semibold mb-2 dark:text-gray-100">{t('systems')}</h3>
+          <Link to="/systems" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
+            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">{t('systems')}</h3>
             <p className="text-gray-600 dark:text-gray-400">{t('availableSystems')}</p>
           </Link>
         </div>
