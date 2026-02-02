@@ -178,6 +178,59 @@ class RequestStatistics(BaseModel):
     my_pending_approvals: int
 
 
+class MonthlyStats(BaseModel):
+    month: str  # "2024-01"
+    total: int
+    approved: int
+    rejected: int
+
+
+class SystemStats(BaseModel):
+    system_id: int
+    system_name: str
+    system_code: str
+    total: int
+    approved: int
+    pending: int
+
+
+class StatusDistribution(BaseModel):
+    status: str
+    count: int
+    percentage: float
+
+
+class TopRequester(BaseModel):
+    user_id: int
+    full_name: str
+    department: Optional[str]
+    total_requests: int
+
+
+class ApprovalMetrics(BaseModel):
+    avg_approval_time_hours: float
+    min_approval_time_hours: float
+    max_approval_time_hours: float
+    total_approved_this_month: int
+
+
+class DashboardStats(BaseModel):
+    # Summary cards
+    total_requests: int
+    pending_approval: int
+    approved: int
+    rejected: int
+    implemented: int
+    my_pending_approvals: int
+
+    # Charts data
+    monthly_trend: List[MonthlyStats]
+    requests_by_system: List[SystemStats]
+    status_distribution: List[StatusDistribution]
+    top_requesters: List[TopRequester]
+    approval_metrics: ApprovalMetrics
+
+
 class MyRequestsSummary(BaseModel):
     drafts: int
     pending: int

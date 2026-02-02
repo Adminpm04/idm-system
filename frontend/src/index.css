@@ -218,6 +218,13 @@ body {
     @apply bg-purple-900/50 text-purple-300 ring-purple-800;
   }
 
+  .badge-expired {
+    @apply bg-orange-100 text-orange-700 ring-1 ring-orange-200;
+  }
+  .dark .badge-expired {
+    @apply bg-orange-900/50 text-orange-300 ring-orange-800;
+  }
+
   .badge-success {
     @apply bg-green-100 text-green-700 ring-1 ring-green-200;
   }

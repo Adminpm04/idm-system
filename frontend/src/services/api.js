@@ -139,6 +139,7 @@ export const requestsAPI = {
   approve: (id, data) => api.post('/requests/' + id + '/approve', data),
   addComment: (id, data) => api.post('/requests/' + id + '/comments', data),
   statistics: () => api.get('/requests/statistics'),
+  dashboard: () => api.get('/requests/dashboard'),
   searchSuggestions: (q) => api.get('/requests/search/suggestions', { params: { q } }),
   globalSearch: (params) => api.get('/requests/search/global', { params }),
   getRecommendations: (params) => api.get('/requests/recommendations', { params }),
@@ -180,6 +181,16 @@ export const adminAPI = {
   },
   auditLogs: {
     list: (params) => api.get('/admin/audit-logs', { params }),
+    actions: () => api.get('/admin/audit-logs/actions'),
+    users: () => api.get('/admin/audit-logs/users'),
+    export: (params) => api.get('/admin/audit-logs/export', { params, responseType: 'blob' }),
+  },
+  accessRevocation: {
+    stats: () => api.get('/admin/access-revocation/stats'),
+    expiring: (days = 7) => api.get('/admin/access-revocation/expiring', { params: { days } }),
+    expired: () => api.get('/admin/access-revocation/expired'),
+    process: () => api.post('/admin/access-revocation/process'),
+    revoke: (requestId) => api.post('/admin/access-revocation/revoke/' + requestId),
   },
 };
 

@@ -216,6 +216,7 @@ function RequestDetailPage() {
       approved: 'badge-approved',
       rejected: 'badge-rejected',
       implemented: 'badge-implemented',
+      expired: 'badge-expired',
     };
 
     const labels = {
@@ -225,6 +226,7 @@ function RequestDetailPage() {
       approved: t('statusApproved'),
       rejected: t('statusRejected'),
       implemented: t('statusImplemented'),
+      expired: t('statusExpired'),
     };
 
     return (

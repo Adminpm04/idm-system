@@ -121,6 +121,7 @@ function GlobalSearch() {
       approved: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
       rejected: 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300',
       implemented: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300',
+      expired: 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300',
     };
     const labels = {
       draft: t('statusDraft'),
@@ -129,6 +130,7 @@ function GlobalSearch() {
       approved: t('statusApproved'),
       rejected: t('statusRejected'),
       implemented: t('statusImplemented'),
+      expired: t('statusExpired'),
     };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badges[status] || 'bg-gray-100 dark:bg-gray-700'}`}>

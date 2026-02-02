@@ -214,6 +214,15 @@ function ProtectedRoute({ children }) {
   return user ? children : <Navigate to="/login" />;
 }
 
+// Admin Route - only for superusers and demo users
+function AdminRoute({ children }) {
+  const { user } = useAuth();
+  if (!user?.is_superuser && !user?.is_demo) {
+    return <Navigate to="/" />;
+  }
+  return children;
+}
+
 // Friendly Login Background with Brand Colors
 function LoginBackground() {
   const { t } = useLanguage();
@@ -1073,6 +1082,19 @@ function App() {
                     <Layout>
                       <SystemsPage />
                     </Layout>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <AdminRoute>
+                      <Layout>
+                        <DashboardPage />
+                      </Layout>
+                    </AdminRoute>
                   </ProtectedRoute>
                 }
               />

@@ -1,15 +1,33 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.endpoints import auth, users, systems, requests, admin, subsystems, approval_chain, export, dashboard_cards, sod, push
+from app.services.scheduler import start_scheduler, stop_scheduler
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting background scheduler...")
+    start_scheduler()
+    yield
+    # Shutdown
+    logger.info("Stopping background scheduler...")
+    stop_scheduler()
 
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    debug=settings.DEBUG
+    debug=settings.DEBUG,
+    lifespan=lifespan
 )
 
 # CORS

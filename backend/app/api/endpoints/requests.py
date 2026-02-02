@@ -13,7 +13,9 @@ from app.schemas.request import (
     RequestCommentResponse, RequestStatistics, MyRequestsSummary,
     BulkRequestCreate, BulkRequestResponse,
     AttachmentResponse, AttachmentUploadResponse,
-    RecommendationsResponse, SystemRecommendation, RoleRecommendation
+    RecommendationsResponse, SystemRecommendation, RoleRecommendation,
+    DashboardStats, MonthlyStats, SystemStats, StatusDistribution,
+    TopRequester, ApprovalMetrics
 )
 from app.models import (
     AccessRequest, Approval, RequestComment, AuditLog, User, RequestAttachment,
@@ -455,6 +457,171 @@ async def get_request_statistics(
         "implemented": implemented,
         "my_pending_approvals": my_approvals
     }
+
+
+@router.get("/dashboard", response_model=DashboardStats)
+async def get_dashboard_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get comprehensive dashboard statistics with charts data"""
+    from sqlalchemy import func, extract
+    from datetime import timedelta
+    from app.models import System
+
+    # Basic counts
+    total = db.query(AccessRequest).count()
+    pending = db.query(AccessRequest).filter(AccessRequest.status == RequestStatus.IN_REVIEW).count()
+    approved = db.query(AccessRequest).filter(AccessRequest.status == RequestStatus.APPROVED).count()
+    rejected = db.query(AccessRequest).filter(AccessRequest.status == RequestStatus.REJECTED).count()
+    implemented = db.query(AccessRequest).filter(AccessRequest.status == RequestStatus.IMPLEMENTED).count()
+
+    my_approvals = db.query(Approval).filter(
+        Approval.approver_id == current_user.id,
+        Approval.status == ApprovalStatus.PENDING
+    ).count()
+
+    # Monthly trend (last 6 months)
+    from sqlalchemy import case, Integer
+
+    six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
+    monthly_data = db.query(
+        func.to_char(AccessRequest.created_at, 'YYYY-MM').label('month'),
+        func.count().label('total'),
+        func.sum(case((AccessRequest.status == RequestStatus.APPROVED, 1), else_=0)).label('approved'),
+        func.sum(case((AccessRequest.status == RequestStatus.REJECTED, 1), else_=0)).label('rejected')
+    ).filter(
+        AccessRequest.created_at >= six_months_ago
+    ).group_by(
+        func.to_char(AccessRequest.created_at, 'YYYY-MM')
+    ).order_by('month').all()
+
+    monthly_trend = [
+        MonthlyStats(
+            month=row.month,
+            total=row.total or 0,
+            approved=int(row.approved or 0),
+            rejected=int(row.rejected or 0)
+        )
+        for row in monthly_data
+    ]
+
+    # Requests by system (top 5)
+    system_data = db.query(
+        System.id,
+        System.name,
+        System.code,
+        func.count(AccessRequest.id).label('total'),
+        func.sum(case((AccessRequest.status == RequestStatus.APPROVED, 1), else_=0)).label('approved'),
+        func.sum(case((AccessRequest.status == RequestStatus.IN_REVIEW, 1), else_=0)).label('pending')
+    ).join(
+        AccessRequest, AccessRequest.system_id == System.id
+    ).group_by(
+        System.id, System.name, System.code
+    ).order_by(
+        func.count(AccessRequest.id).desc()
+    ).limit(5).all()
+
+    requests_by_system = [
+        SystemStats(
+            system_id=row.id,
+            system_name=row.name,
+            system_code=row.code,
+            total=row.total or 0,
+            approved=int(row.approved or 0),
+            pending=int(row.pending or 0)
+        )
+        for row in system_data
+    ]
+
+    # Status distribution
+    status_counts = db.query(
+        AccessRequest.status,
+        func.count().label('count')
+    ).group_by(AccessRequest.status).all()
+
+    total_for_percentage = sum(row.count for row in status_counts) or 1
+    status_distribution = [
+        StatusDistribution(
+            status=row.status.value,
+            count=row.count,
+            percentage=round((row.count / total_for_percentage) * 100, 1)
+        )
+        for row in status_counts
+    ]
+
+    # Top requesters (top 5)
+    requester_data = db.query(
+        User.id,
+        User.full_name,
+        User.department,
+        func.count(AccessRequest.id).label('total_requests')
+    ).join(
+        AccessRequest, AccessRequest.requester_id == User.id
+    ).group_by(
+        User.id, User.full_name, User.department
+    ).order_by(
+        func.count(AccessRequest.id).desc()
+    ).limit(5).all()
+
+    top_requesters = [
+        TopRequester(
+            user_id=row.id,
+            full_name=row.full_name,
+            department=row.department,
+            total_requests=row.total_requests
+        )
+        for row in requester_data
+    ]
+
+    # Approval metrics
+    current_month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    approved_this_month = db.query(Approval).filter(
+        Approval.status == ApprovalStatus.APPROVED,
+        Approval.decision_date >= current_month_start
+    ).count()
+
+    # Calculate approval times (for approved requests)
+    approval_times = db.query(
+        func.extract('epoch', Approval.decision_date - AccessRequest.submitted_at) / 3600
+    ).join(
+        AccessRequest, AccessRequest.id == Approval.request_id
+    ).filter(
+        Approval.status == ApprovalStatus.APPROVED,
+        Approval.decision_date.isnot(None),
+        AccessRequest.submitted_at.isnot(None)
+    ).all()
+
+    approval_hours = [t[0] for t in approval_times if t[0] is not None and t[0] > 0]
+
+    if approval_hours:
+        avg_time = sum(approval_hours) / len(approval_hours)
+        min_time = min(approval_hours)
+        max_time = max(approval_hours)
+    else:
+        avg_time = min_time = max_time = 0
+
+    approval_metrics = ApprovalMetrics(
+        avg_approval_time_hours=round(avg_time, 1),
+        min_approval_time_hours=round(min_time, 1),
+        max_approval_time_hours=round(max_time, 1),
+        total_approved_this_month=approved_this_month
+    )
+
+    return DashboardStats(
+        total_requests=total,
+        pending_approval=pending,
+        approved=approved,
+        rejected=rejected,
+        implemented=implemented,
+        my_pending_approvals=my_approvals,
+        monthly_trend=monthly_trend,
+        requests_by_system=requests_by_system,
+        status_distribution=status_distribution,
+        top_requesters=top_requesters,
+        approval_metrics=approval_metrics
+    )
 
 
 @router.post("", response_model=AccessRequestResponse, status_code=status.HTTP_201_CREATED)

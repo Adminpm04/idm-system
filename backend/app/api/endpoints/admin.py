@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List
+from datetime import date
 from app.db.session import get_db
 from app.schemas.user import RoleCreate, RoleUpdate, RoleResponse, PermissionResponse
 from app.models import Role, Permission, User, AuditLog, AccessRequest
+from app.models.request import RequestStatus
 from app.api.deps import get_current_superuser, get_admin_reader, get_admin_writer
 
 router = APIRouter()
@@ -134,20 +136,164 @@ async def list_permissions(
 async def get_audit_logs(
     skip: int = 0,
     limit: int = 100,
+    user_id: int = None,
+    action: str = None,
+    request_id: int = None,
+    date_from: str = None,
+    date_to: str = None,
+    search: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_admin_reader)
 ):
-    """Get audit logs with full details"""
-    # Загружаем логи с связанными данными
-    logs = db.query(AuditLog).options(
+    """Get audit logs with full details and filters"""
+    from datetime import datetime
+
+    query = db.query(AuditLog).options(
         joinedload(AuditLog.user),
         joinedload(AuditLog.request).joinedload(AccessRequest.system),
         joinedload(AuditLog.request).joinedload(AccessRequest.target_user)
-    ).order_by(
+    )
+
+    # Apply filters
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+
+    if action:
+        query = query.filter(AuditLog.action == action)
+
+    if request_id:
+        query = query.filter(AuditLog.request_id == request_id)
+
+    if date_from:
+        try:
+            from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            query = query.filter(AuditLog.created_at >= from_date)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            query = query.filter(AuditLog.created_at <= to_date)
+        except ValueError:
+            pass
+
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(AuditLog.details.ilike(search_pattern))
+
+    # Get total count for pagination
+    total = query.count()
+
+    # Apply ordering and pagination
+    logs = query.order_by(
         AuditLog.created_at.desc()
     ).offset(skip).limit(limit).all()
 
-    return logs
+    return {"logs": logs, "total": total}
+
+
+@router.get("/audit-logs/actions")
+async def get_audit_actions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_reader)
+):
+    """Get unique action types for filter dropdown"""
+    actions = db.query(AuditLog.action).distinct().all()
+    return [a[0] for a in actions if a[0]]
+
+
+@router.get("/audit-logs/users")
+async def get_audit_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_reader)
+):
+    """Get users who have audit entries for filter dropdown"""
+    from sqlalchemy import func
+
+    users = db.query(
+        User.id,
+        User.full_name,
+        func.count(AuditLog.id).label('log_count')
+    ).join(
+        AuditLog, AuditLog.user_id == User.id
+    ).group_by(
+        User.id, User.full_name
+    ).order_by(
+        func.count(AuditLog.id).desc()
+    ).limit(50).all()
+
+    return [{"id": u.id, "full_name": u.full_name, "log_count": u.log_count} for u in users]
+
+
+@router.get("/audit-logs/export")
+async def export_audit_logs(
+    user_id: int = None,
+    action: str = None,
+    request_id: int = None,
+    date_from: str = None,
+    date_to: str = None,
+    search: str = None,
+    format: str = "csv",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_reader)
+):
+    """Export audit logs to CSV"""
+    from datetime import datetime
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+
+    query = db.query(AuditLog).options(
+        joinedload(AuditLog.user),
+        joinedload(AuditLog.request)
+    )
+
+    # Apply same filters as list
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+    if action:
+        query = query.filter(AuditLog.action == action)
+    if request_id:
+        query = query.filter(AuditLog.request_id == request_id)
+    if date_from:
+        try:
+            from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            query = query.filter(AuditLog.created_at >= from_date)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            query = query.filter(AuditLog.created_at <= to_date)
+        except ValueError:
+            pass
+    if search:
+        query = query.filter(AuditLog.details.ilike(f"%{search}%"))
+
+    logs = query.order_by(AuditLog.created_at.desc()).limit(10000).all()
+
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Date', 'User', 'Action', 'Details', 'Request ID', 'IP Address'])
+
+    for log in logs:
+        writer.writerow([
+            log.created_at.isoformat() if log.created_at else '',
+            log.user.full_name if log.user else 'System',
+            log.action,
+            log.details or '',
+            log.request_id or '',
+            log.ip_address or ''
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=audit_logs.csv"}
+    )
 
 
 @router.get("/ldap/test")
@@ -893,3 +1039,107 @@ async def cleanup_expired_demo_users(
         'deactivated': deactivated_count,
         'message': f'{deactivated_count} expired demo users deactivated'
     }
+
+
+# ==================== Access Revocation Endpoints ====================
+
+@router.get("/access-revocation/stats")
+async def get_revocation_statistics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_reader)
+):
+    """Get statistics about temporary accesses and expirations."""
+    from app.services.access_revocation import get_revocation_stats
+    return get_revocation_stats(db)
+
+
+@router.get("/access-revocation/expiring")
+async def get_expiring_accesses(
+    days: int = 7,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_reader)
+):
+    """Get list of accesses expiring within specified days."""
+    from app.services.access_revocation import get_expiring_soon
+
+    expiring = get_expiring_soon(db, days)
+
+    return [
+        {
+            "id": req.id,
+            "request_number": req.request_number,
+            "target_user_id": req.target_user_id,
+            "target_user_name": req.target_user.full_name if req.target_user else None,
+            "system_id": req.system_id,
+            "system_name": req.system.name if req.system else None,
+            "access_role_name": req.access_role.name if req.access_role else None,
+            "valid_until": req.valid_until.isoformat() if req.valid_until else None,
+            "days_remaining": (req.valid_until - date.today()).days if req.valid_until else None
+        }
+        for req in expiring
+    ]
+
+
+@router.get("/access-revocation/expired")
+async def get_expired_accesses_list(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_reader)
+):
+    """Get list of accesses that have expired but not yet revoked."""
+    from app.services.access_revocation import get_expired_accesses
+
+    expired = get_expired_accesses(db)
+
+    return [
+        {
+            "id": req.id,
+            "request_number": req.request_number,
+            "target_user_id": req.target_user_id,
+            "target_user_name": req.target_user.full_name if req.target_user else None,
+            "system_id": req.system_id,
+            "system_name": req.system.name if req.system else None,
+            "access_role_name": req.access_role.name if req.access_role else None,
+            "valid_until": req.valid_until.isoformat() if req.valid_until else None,
+            "days_overdue": (date.today() - req.valid_until).days if req.valid_until else None
+        }
+        for req in expired
+    ]
+
+
+@router.post("/access-revocation/process")
+async def process_expired_accesses_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_writer)
+):
+    """Manually trigger processing of expired accesses."""
+    from app.services.access_revocation import process_expired_accesses
+
+    results = process_expired_accesses(db)
+    return results
+
+
+@router.post("/access-revocation/revoke/{request_id}")
+async def revoke_single_access(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_writer)
+):
+    """Manually revoke a single access request."""
+    from app.services.access_revocation import revoke_expired_access
+
+    request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    if request.status != RequestStatus.IMPLEMENTED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only revoke implemented accesses. Current status: {request.status.value}"
+        )
+
+    success = revoke_expired_access(db, request, auto=False)
+
+    if success:
+        return {"message": "Access successfully revoked", "request_id": request_id}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to revoke access")

@@ -59,6 +59,7 @@ function MyRequestsListPage() {
       rejected: 'badge-rejected',
       implemented: 'badge-implemented',
       cancelled: 'badge-draft',
+      expired: 'badge-expired',
     };
 
     const labels = {
@@ -69,6 +70,7 @@ function MyRequestsListPage() {
       rejected: t('statusRejected'),
       implemented: t('statusImplemented'),
       cancelled: t('statusCancelled'),
+      expired: t('statusExpired'),
     };
 
     return (

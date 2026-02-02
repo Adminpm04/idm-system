@@ -6,18 +6,22 @@ import AdminPermissions from './AdminPermissions';
 import AdminAuditLogs from './AdminAuditLogs';
 import AdminLDAP from './AdminLDAP';
 import AdminADUsers from './AdminADUsers';
+import AdminAccessRevocation from './AdminAccessRevocation';
+import Dashboard from './Dashboard';
 import ExportButton from '../components/ExportButton';
 import { useLanguage } from '../App';
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const { t } = useLanguage();
 
   const tabs = [
+    { id: 'dashboard', name: t('dashboardTitle') },
     { id: 'users', name: t('users') },
     { id: 'systems', name: t('systems') },
     { id: 'roles', name: t('roles') },
     { id: 'permissions', name: t('permissions') },
+    { id: 'revocation', name: t('accessRevocation') || 'Auto-Revoke' },
     { id: 'ldap', name: t('ldapConfig') },
     { id: 'adusers', name: t('adUsers') },
     { id: 'audit', name: t('auditLog') },
@@ -52,10 +56,12 @@ export default function Admin() {
       </div>
 
       <div>
+        {activeTab === 'dashboard' && <Dashboard />}
         {activeTab === 'users' && <AdminUsers />}
         {activeTab === 'systems' && <AdminSystems />}
         {activeTab === 'roles' && <AdminRoles />}
         {activeTab === 'permissions' && <AdminPermissions />}
+        {activeTab === 'revocation' && <AdminAccessRevocation />}
         {activeTab === 'ldap' && <AdminLDAP />}
         {activeTab === 'adusers' && <AdminADUsers />}
         {activeTab === 'audit' && <AdminAuditLogs />}

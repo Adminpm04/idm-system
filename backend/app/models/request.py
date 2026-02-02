@@ -20,6 +20,7 @@ class RequestStatus(str, enum.Enum):
     REJECTED = "rejected"
     IMPLEMENTED = "implemented"
     CANCELLED = "cancelled"
+    EXPIRED = "expired"  # Auto-revoked due to valid_until date passed
 
 
 class AccessRequest(Base):
