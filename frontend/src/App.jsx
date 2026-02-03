@@ -15,7 +15,7 @@ import MyApprovalsPage from './pages/MyApprovals';
 import GlobalSearch from './components/GlobalSearch';
 import MemoryGame from './components/MemoryGame';
 import { YellowCheckIcon } from './components/Icons';
-import OnboardingTour from './components/OnboardingTour';
+import { TourProvider, useTour } from './components/InteractiveTour';
 
 // Language Context
 const LanguageContext = createContext(null);
@@ -978,10 +978,10 @@ function Layout({ children }) {
                 <Link to="/" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('home')}
                 </Link>
-                <Link to="/my-requests" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
+                <Link to="/my-requests" data-tour="my-requests" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('myRequests')}
                 </Link>
-                <Link to="/my-approvals" className="hover:text-secondary dark:hover:text-secondary transition-colors relative flex items-center py-1 border-b-2 border-transparent hover:border-secondary">
+                <Link to="/my-approvals" data-tour="pending-approvals" className="hover:text-secondary dark:hover:text-secondary transition-colors relative flex items-center py-1 border-b-2 border-transparent hover:border-secondary">
                   {t('pendingApprovals')}
                   {pendingApprovalsCount > 0 && (
                     <span className="ml-2 bg-red-500 dark:bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse shadow-lg">
@@ -993,7 +993,7 @@ function Layout({ children }) {
                   {t('systems')}
                 </Link>
                 {(user?.is_superuser || user?.is_demo) && (
-                  <Link to="/admin" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
+                  <Link to="/admin" data-tour="admin-link" className="hover:text-secondary dark:hover:text-secondary transition-colors py-1 border-b-2 border-transparent hover:border-secondary">
                     {t('admin')}
                   </Link>
                 )}
@@ -1022,9 +1022,6 @@ function Layout({ children }) {
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
-
-      {/* Onboarding Tour for first-time users */}
-      <OnboardingTour user={user} />
     </div>
   );
 }
@@ -1042,7 +1039,7 @@ function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link to="/create-request" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
+          <Link to="/create-request" data-tour="new-request" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
             <div className="w-10 h-10 rounded-lg bg-primary/10 dark:bg-blue-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
               <svg className="w-5 h-5 text-primary dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </div>
@@ -1050,7 +1047,7 @@ function Dashboard() {
             <p className="text-gray-600 dark:text-gray-400">{t('requestAccess')}</p>
           </Link>
 
-          <Link to="/my-requests" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
+          <Link to="/my-requests" data-tour="my-requests-card" className="card hover:shadow-lg dark:hover:shadow-dark-lg hover:border-primary/30 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 group">
             <div className="w-10 h-10 rounded-lg bg-secondary/20 dark:bg-secondary/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
               <svg className="w-5 h-5 text-secondary-600 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             </div>
@@ -1090,6 +1087,12 @@ function Dashboard() {
   );
 }
 
+// Tour Wrapper - wraps routes with TourProvider using user from AuthContext
+function TourWrapper({ children }) {
+  const { user } = useAuth();
+  return <TourProvider user={user}>{children}</TourProvider>;
+}
+
 // Main App
 function App() {
   return (
@@ -1097,6 +1100,7 @@ function App() {
       <LanguageProvider>
         <ThemeProvider>
           <AuthProvider>
+            <TourWrapper>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
 
@@ -1191,6 +1195,7 @@ function App() {
               {/* Fallback: redirect to home if route not found */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            </TourWrapper>
           </AuthProvider>
         </ThemeProvider>
       </LanguageProvider>

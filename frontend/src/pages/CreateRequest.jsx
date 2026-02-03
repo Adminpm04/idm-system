@@ -604,7 +604,7 @@ function CreateRequestPage() {
           )}
 
           {/* User */}
-          <div>
+          <div data-tour="user-search">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('whoNeedsAccess')} <span className="text-red-500">*</span>
               {formData.target_user_ids.length > 1 && (
@@ -660,7 +660,7 @@ function CreateRequestPage() {
           </div>
 
           {/* System */}
-          <div>
+          <div data-tour="system-select">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('system')} <span className="text-red-500">*</span>
             </label>
@@ -743,7 +743,7 @@ function CreateRequestPage() {
           )}
 
           {/* Access Role */}
-          <div>
+          <div data-tour="role-select">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('accessRole')} <span className="text-red-500">*</span>
             </label>
@@ -845,7 +845,7 @@ function CreateRequestPage() {
           </div>
 
           {/* Justification */}
-          <div>
+          <div data-tour="justification">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t('justificationLabel')} <span className="text-red-500">*</span>
             </label>

@@ -43,6 +43,7 @@ export default function Admin() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              data-tour={tab.id === 'users' ? 'admin-users' : tab.id === 'systems' ? 'admin-systems' : undefined}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
                   ? 'border-primary text-primary dark:text-blue-400'
