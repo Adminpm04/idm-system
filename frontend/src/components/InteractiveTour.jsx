@@ -657,10 +657,11 @@ function TourOverlay({
             />
             {/* Right blocker */}
             <div
-              className="absolute right-0"
+              className="absolute"
               style={{
                 top: targetRect.viewportTop - SPOTLIGHT_PADDING,
                 left: targetRect.viewportLeft + targetRect.width + SPOTLIGHT_PADDING,
+                right: 0,
                 height: targetRect.height + SPOTLIGHT_PADDING * 2,
                 pointerEvents: 'auto',
               }}
