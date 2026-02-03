@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../App';
 
@@ -9,7 +9,7 @@ export const useTour = () => useContext(TourContext);
 
 // Tour Provider Component
 export function TourProvider({ children, user }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -17,6 +17,7 @@ export function TourProvider({ children, user }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetElement, setTargetElement] = useState(null);
   const [targetRect, setTargetRect] = useState(null);
+  const previousLanguage = useRef(language);
 
   // Determine user role
   const isAdmin = user?.is_superuser || user?.is_demo;
@@ -30,6 +31,7 @@ export function TourProvider({ children, user }) {
   // Get tour key for storage
   const getTourKey = () => `interactive_tour_${user?.id}`;
   const getProgressKey = () => `interactive_tour_progress_${user?.id}`;
+  const getSkipLangKey = () => `interactive_tour_skip_lang_${user?.id}`;
 
   // Define tour steps based on role
   const getTourSteps = useCallback(() => {
@@ -305,6 +307,7 @@ export function TourProvider({ children, user }) {
 
   const skipTour = () => {
     localStorage.setItem(getTourKey(), 'skipped');
+    localStorage.setItem(getSkipLangKey(), language); // Save language when skipping
     localStorage.removeItem(getProgressKey());
     setIsActive(false);
   };
@@ -312,8 +315,29 @@ export function TourProvider({ children, user }) {
   const completeTour = () => {
     localStorage.setItem(getTourKey(), 'completed');
     localStorage.removeItem(getProgressKey());
+    localStorage.removeItem(getSkipLangKey());
     setIsActive(false);
   };
+
+  // Reset tour if language changed after skipping (user wants tour in new language)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const tourStatus = localStorage.getItem(getTourKey());
+    const skipLang = localStorage.getItem(getSkipLangKey());
+
+    // If tour was skipped and language changed, restart tour
+    if (tourStatus === 'skipped' && skipLang && skipLang !== language) {
+      localStorage.removeItem(getTourKey());
+      localStorage.removeItem(getSkipLangKey());
+      localStorage.removeItem(getProgressKey());
+      setCurrentStep(0);
+      setIsActive(true);
+      navigate('/');
+    }
+
+    previousLanguage.current = language;
+  }, [language, user?.id, navigate]);
 
   const restartTour = () => {
     localStorage.removeItem(getTourKey());
@@ -457,9 +481,9 @@ function TourOverlay({ step, stepNumber, totalSteps, targetRect, onNext, onPrev,
   };
 
   return (
-    <div className="fixed inset-0 z-[9999]">
+    <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: 'none' }}>
       {/* Overlay with spotlight cutout */}
-      <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
+      <svg className="absolute inset-0 w-full h-full">
         <defs>
           <mask id="spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -499,10 +523,11 @@ function TourOverlay({ step, stepNumber, totalSteps, targetRect, onNext, onPrev,
         />
       )}
 
-      {/* Click overlay for non-target areas */}
+      {/* Click overlay for non-target areas - allows header clicks for language toggle */}
       {!step.waitForClick && (
         <div
           className="absolute inset-0"
+          style={{ top: '64px', pointerEvents: 'auto' }} /* Skip header area (h-16 = 64px) */
           onClick={(e) => {
             // Allow clicking through to target element area
             if (targetRect) {
@@ -522,7 +547,7 @@ function TourOverlay({ step, stepNumber, totalSteps, targetRect, onNext, onPrev,
       {/* Tooltip */}
       <div
         className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 z-10 animate-fade-in"
-        style={getTooltipStyle()}
+        style={{ ...getTooltipStyle(), pointerEvents: 'auto' }}
       >
         {/* Arrow */}
         <div style={getArrowStyle()} className="dark:border-gray-800" />
