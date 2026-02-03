@@ -329,7 +329,54 @@ export function TourProvider({ children, user }) {
     };
   }, [updateTargetRect]);
 
-  // Keyboard navigation
+  // Navigation functions - must be declared before useEffects that use them
+  const goToStep = useCallback((stepIndex) => {
+    if (stepIndex < 0 || stepIndex >= steps.length) return;
+
+    setState(prev => ({ ...prev, isTransitioning: true }));
+
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        currentStep: stepIndex,
+        isTransitioning: false,
+      }));
+      storage.setProgress(stepIndex);
+    }, ANIMATION_DURATION);
+  }, [steps.length, storage]);
+
+  const skipTour = useCallback(() => {
+    storage.setTourStatus('skipped');
+    storage.setSkipLang(language);
+    setState(prev => ({ ...prev, isActive: false }));
+  }, [storage, language]);
+
+  const completeTour = useCallback(() => {
+    storage.setTourStatus('completed');
+    setState(prev => ({ ...prev, isActive: false }));
+  }, [storage]);
+
+  const restartTour = useCallback(() => {
+    storage.clearAll();
+    setState({ isActive: true, currentStep: 0, isTransitioning: false });
+    navigate('/');
+  }, [storage, navigate]);
+
+  const nextStep = useCallback(() => {
+    if (state.currentStep >= steps.length - 1) {
+      completeTour();
+    } else {
+      goToStep(state.currentStep + 1);
+    }
+  }, [state.currentStep, steps.length, goToStep, completeTour]);
+
+  const prevStep = useCallback(() => {
+    if (state.currentStep > 0) {
+      goToStep(state.currentStep - 1);
+    }
+  }, [state.currentStep, goToStep]);
+
+  // Keyboard navigation - uses functions above
   useEffect(() => {
     if (!state.isActive) return;
 
@@ -350,7 +397,7 @@ export function TourProvider({ children, user }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.isActive, state.currentStep, currentStepData]);
+  }, [state.isActive, state.currentStep, currentStepData, skipTour, nextStep, prevStep]);
 
   // Click handler for waitForClick steps
   useEffect(() => {
@@ -371,56 +418,7 @@ export function TourProvider({ children, user }) {
 
     el.addEventListener('click', handleClick);
     return () => el.removeEventListener('click', handleClick);
-  }, [state.isActive, state.currentStep, currentStepData, storage, navigate]);
-
-  // Navigation functions
-  const goToStep = useCallback((stepIndex) => {
-    if (stepIndex < 0 || stepIndex >= steps.length) return;
-
-    setState(prev => ({ ...prev, isTransitioning: true }));
-
-    setTimeout(() => {
-      setState(prev => ({
-        ...prev,
-        currentStep: stepIndex,
-        isTransitioning: false,
-      }));
-      storage.setProgress(stepIndex);
-    }, ANIMATION_DURATION);
-  }, [steps.length, storage]);
-
-  const nextStep = useCallback(() => {
-    if (state.currentStep >= steps.length - 1) {
-      completeTour();
-    } else {
-      goToStep(state.currentStep + 1);
-    }
-  }, [state.currentStep, steps.length, goToStep]);
-
-  const prevStep = useCallback(() => {
-    if (state.currentStep > 0) {
-      goToStep(state.currentStep - 1);
-    }
-  }, [state.currentStep, goToStep]);
-
-  const skipTour = useCallback(() => {
-    storage.setTourStatus('skipped');
-    storage.setSkipLang(language);
-    setState(prev => ({ ...prev, isActive: false }));
-  }, [storage, language]);
-
-  const completeTour = useCallback(() => {
-    storage.setTourStatus('completed');
-    storage.clearAll();
-    storage.setTourStatus('completed'); // Re-set after clear
-    setState(prev => ({ ...prev, isActive: false }));
-  }, [storage]);
-
-  const restartTour = useCallback(() => {
-    storage.clearAll();
-    setState({ isActive: true, currentStep: 0, isTransitioning: false });
-    navigate('/');
-  }, [storage, navigate]);
+  }, [state.isActive, state.currentStep, currentStepData, storage, navigate, goToStep]);
 
   const contextValue = useMemo(() => ({
     isActive: state.isActive,
