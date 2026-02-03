@@ -15,6 +15,7 @@ import MyApprovalsPage from './pages/MyApprovals';
 import GlobalSearch from './components/GlobalSearch';
 import MemoryGame from './components/MemoryGame';
 import { YellowCheckIcon } from './components/Icons';
+import OnboardingTour from './components/OnboardingTour';
 
 // Language Context
 const LanguageContext = createContext(null);
@@ -1021,6 +1022,9 @@ function Layout({ children }) {
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
+
+      {/* Onboarding Tour for first-time users */}
+      <OnboardingTour user={user} />
     </div>
   );
 }
