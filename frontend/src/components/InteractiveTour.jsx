@@ -560,13 +560,12 @@ function TourOverlay({
       aria-modal="true"
       aria-label={t('tourStepWelcome')}
     >
-      {/* Animated backdrop */}
+      {/* Animated backdrop - pointerEvents handled by children */}
       <div
         className={`absolute inset-0 transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
-        style={{ pointerEvents: 'auto' }}
       >
-        {/* SVG Spotlight mask */}
-        <svg className="absolute inset-0 w-full h-full">
+        {/* SVG Spotlight mask - no pointer events */}
+        <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
           <defs>
             <mask id="tour-spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -625,23 +624,54 @@ function TourOverlay({
           />
         )}
 
-        {/* Click blocker (excludes header for language toggle) */}
-        {!step.waitForClick && (
+        {/* Click blocker - frame around target, allows clicks on target and header */}
+        {!step.waitForClick && targetRect && (
+          <>
+            {/* Top blocker (below header) */}
+            <div
+              className="absolute left-0 right-0"
+              style={{
+                top: '64px',
+                height: Math.max(0, targetRect.viewportTop - SPOTLIGHT_PADDING - 64),
+                pointerEvents: 'auto',
+              }}
+            />
+            {/* Bottom blocker */}
+            <div
+              className="absolute left-0 right-0 bottom-0"
+              style={{
+                top: targetRect.viewportTop + targetRect.height + SPOTLIGHT_PADDING,
+                pointerEvents: 'auto',
+              }}
+            />
+            {/* Left blocker */}
+            <div
+              className="absolute"
+              style={{
+                top: targetRect.viewportTop - SPOTLIGHT_PADDING,
+                left: 0,
+                width: Math.max(0, targetRect.viewportLeft - SPOTLIGHT_PADDING),
+                height: targetRect.height + SPOTLIGHT_PADDING * 2,
+                pointerEvents: 'auto',
+              }}
+            />
+            {/* Right blocker */}
+            <div
+              className="absolute right-0"
+              style={{
+                top: targetRect.viewportTop - SPOTLIGHT_PADDING,
+                left: targetRect.viewportLeft + targetRect.width + SPOTLIGHT_PADDING,
+                height: targetRect.height + SPOTLIGHT_PADDING * 2,
+                pointerEvents: 'auto',
+              }}
+            />
+          </>
+        )}
+        {/* Full blocker when no target (centered modal) */}
+        {!step.waitForClick && !targetRect && (
           <div
-            className="absolute left-0 right-0 bottom-0"
+            className="absolute inset-0"
             style={{ top: '64px', pointerEvents: 'auto' }}
-            onClick={(e) => {
-              if (targetRect) {
-                const { clientX, clientY } = e;
-                const inTarget =
-                  clientX >= targetRect.viewportLeft - SPOTLIGHT_PADDING &&
-                  clientX <= targetRect.viewportLeft + targetRect.width + SPOTLIGHT_PADDING &&
-                  clientY >= targetRect.viewportTop - SPOTLIGHT_PADDING &&
-                  clientY <= targetRect.viewportTop + targetRect.height + SPOTLIGHT_PADDING;
-                if (inTarget) return;
-              }
-              e.stopPropagation();
-            }}
           />
         )}
       </div>
