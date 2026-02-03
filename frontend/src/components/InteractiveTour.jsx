@@ -1,11 +1,21 @@
-import React, { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../App';
 
-// Tour Context for global access
+// Tour Context
 const TourContext = createContext(null);
-
 export const useTour = () => useContext(TourContext);
+
+// Constants
+const STORAGE_KEYS = {
+  tour: (userId) => `idm_tour_v2_${userId}`,
+  progress: (userId) => `idm_tour_progress_${userId}`,
+  skipLang: (userId) => `idm_tour_skip_lang_${userId}`,
+};
+
+const ANIMATION_DURATION = 300;
+const SPOTLIGHT_PADDING = 12;
+const TOOLTIP_GAP = 20;
 
 // Tour Provider Component
 export function TourProvider({ children, user }) {
@@ -13,41 +23,44 @@ export function TourProvider({ children, user }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [isActive, setIsActive] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [targetElement, setTargetElement] = useState(null);
+  const [state, setState] = useState({
+    isActive: false,
+    currentStep: 0,
+    isTransitioning: false,
+  });
   const [targetRect, setTargetRect] = useState(null);
-  const previousLanguage = useRef(language);
 
-  // Determine user role
-  const isAdmin = user?.is_superuser || user?.is_demo;
-  const isManager = user?.roles?.some(r =>
-    r.name?.toLowerCase().includes('manager') ||
-    r.name?.toLowerCase().includes('approver') ||
-    r.name?.toLowerCase().includes('менеджер') ||
-    r.name?.toLowerCase().includes('согласующий')
-  ) || user?.is_superuser;
+  const targetElementRef = useRef(null);
+  const observerRef = useRef(null);
 
-  // Get tour key for storage
-  const getTourKey = () => `interactive_tour_${user?.id}`;
-  const getProgressKey = () => `interactive_tour_progress_${user?.id}`;
-  const getSkipLangKey = () => `interactive_tour_skip_lang_${user?.id}`;
+  // User role detection
+  const userRole = useMemo(() => {
+    const isAdmin = user?.is_superuser || user?.is_demo;
+    const isManager = user?.roles?.some(r =>
+      ['manager', 'approver', 'менеджер', 'согласующий'].some(
+        keyword => r.name?.toLowerCase().includes(keyword)
+      )
+    ) || isAdmin;
+    return { isAdmin, isManager };
+  }, [user]);
 
-  // Define tour steps based on role
-  const getTourSteps = useCallback(() => {
-    const userSteps = [
+  // Tour steps definition
+  const steps = useMemo(() => {
+    const baseSteps = [
       {
         id: 'welcome',
         path: '/',
-        target: null, // No target = centered modal
+        target: null,
+        icon: '👋',
         title: t('tourStepWelcome'),
         content: t('tourStepWelcomeDesc'),
         position: 'center',
       },
       {
-        id: 'create-request-btn',
+        id: 'create-request',
         path: '/',
         target: '[data-tour="new-request"]',
+        icon: '➕',
         title: t('tourStepCreateBtn'),
         content: t('tourStepCreateBtnDesc'),
         position: 'bottom',
@@ -55,25 +68,28 @@ export function TourProvider({ children, user }) {
         nextPath: '/create-request',
       },
       {
-        id: 'select-user',
+        id: 'user-search',
         path: '/create-request',
         target: '[data-tour="user-search"]',
+        icon: '👤',
         title: t('tourStepSelectUser'),
         content: t('tourStepSelectUserDesc'),
         position: 'bottom',
       },
       {
-        id: 'select-system',
+        id: 'system-select',
         path: '/create-request',
         target: '[data-tour="system-select"]',
+        icon: '🖥️',
         title: t('tourStepSelectSystem'),
         content: t('tourStepSelectSystemDesc'),
         position: 'bottom',
       },
       {
-        id: 'select-role',
+        id: 'role-select',
         path: '/create-request',
         target: '[data-tour="role-select"]',
+        icon: '🔑',
         title: t('tourStepSelectRole'),
         content: t('tourStepSelectRoleDesc'),
         position: 'bottom',
@@ -82,6 +98,7 @@ export function TourProvider({ children, user }) {
         id: 'justification',
         path: '/create-request',
         target: '[data-tour="justification"]',
+        icon: '📝',
         title: t('tourStepJustification'),
         content: t('tourStepJustificationDesc'),
         position: 'top',
@@ -90,25 +107,19 @@ export function TourProvider({ children, user }) {
         id: 'my-requests',
         path: '/',
         target: '[data-tour="my-requests"]',
+        icon: '📋',
         title: t('tourStepMyRequests'),
         content: t('tourStepMyRequestsDesc'),
         position: 'bottom',
-      },
-      {
-        id: 'complete',
-        path: null,
-        target: null,
-        title: t('tourStepComplete'),
-        content: t('tourStepCompleteDesc'),
-        position: 'center',
       },
     ];
 
     const managerSteps = [
       {
-        id: 'approvals-nav',
+        id: 'approvals',
         path: '/',
         target: '[data-tour="pending-approvals"]',
+        icon: '✅',
         title: t('tourStepApprovals'),
         content: t('tourStepApprovalsDesc'),
         position: 'bottom',
@@ -119,9 +130,11 @@ export function TourProvider({ children, user }) {
         id: 'approve-request',
         path: '/my-approvals',
         target: '[data-tour="approval-card"]',
+        icon: '📨',
         title: t('tourStepApproveRequest'),
         content: t('tourStepApproveRequestDesc'),
         position: 'right',
+        optional: true, // May not have cards
       },
     ];
 
@@ -130,6 +143,7 @@ export function TourProvider({ children, user }) {
         id: 'admin-nav',
         path: '/',
         target: '[data-tour="admin-link"]',
+        icon: '⚙️',
         title: t('tourStepAdmin'),
         content: t('tourStepAdminDesc'),
         position: 'bottom',
@@ -140,230 +154,297 @@ export function TourProvider({ children, user }) {
         id: 'admin-users',
         path: '/admin',
         target: '[data-tour="admin-users"]',
+        icon: '👥',
         title: t('tourStepAdminUsers'),
         content: t('tourStepAdminUsersDesc'),
-        position: 'right',
+        position: 'bottom',
       },
       {
         id: 'admin-systems',
         path: '/admin',
         target: '[data-tour="admin-systems"]',
+        icon: '🏢',
         title: t('tourStepAdminSystems'),
         content: t('tourStepAdminSystemsDesc'),
-        position: 'right',
+        position: 'bottom',
       },
     ];
 
-    let steps = [...userSteps];
+    const completeStep = {
+      id: 'complete',
+      path: null,
+      target: null,
+      icon: '🎉',
+      title: t('tourStepComplete'),
+      content: t('tourStepCompleteDesc'),
+      position: 'center',
+    };
 
-    if (isManager && !isAdmin) {
-      // Insert manager steps before complete
-      steps.splice(steps.length - 1, 0, ...managerSteps);
+    let allSteps = [...baseSteps];
+
+    if (userRole.isManager && !userRole.isAdmin) {
+      allSteps.push(...managerSteps);
+    }
+    if (userRole.isAdmin) {
+      allSteps.push(...managerSteps, ...adminSteps);
     }
 
-    if (isAdmin) {
-      // Insert admin steps before complete
-      steps.splice(steps.length - 1, 0, ...managerSteps, ...adminSteps);
-    }
+    allSteps.push(completeStep);
+    return allSteps;
+  }, [t, userRole]);
 
-    return steps;
-  }, [t, isAdmin, isManager]);
+  const currentStepData = steps[state.currentStep];
 
-  const steps = getTourSteps();
+  // Storage helpers
+  const storage = useMemo(() => ({
+    getTourStatus: () => localStorage.getItem(STORAGE_KEYS.tour(user?.id)),
+    setTourStatus: (status) => localStorage.setItem(STORAGE_KEYS.tour(user?.id), status),
+    getProgress: () => parseInt(localStorage.getItem(STORAGE_KEYS.progress(user?.id)) || '0', 10),
+    setProgress: (step) => localStorage.setItem(STORAGE_KEYS.progress(user?.id), String(step)),
+    getSkipLang: () => localStorage.getItem(STORAGE_KEYS.skipLang(user?.id)),
+    setSkipLang: (lang) => localStorage.setItem(STORAGE_KEYS.skipLang(user?.id), lang),
+    clearAll: () => {
+      localStorage.removeItem(STORAGE_KEYS.tour(user?.id));
+      localStorage.removeItem(STORAGE_KEYS.progress(user?.id));
+      localStorage.removeItem(STORAGE_KEYS.skipLang(user?.id));
+    },
+  }), [user?.id]);
 
-  // Check if tour should start
+  // Initialize tour
   useEffect(() => {
     if (!user?.id) return;
 
-    const hasSeen = localStorage.getItem(getTourKey());
-    const savedProgress = localStorage.getItem(getProgressKey());
-
-    if (!hasSeen) {
-      // First time - start tour
-      setTimeout(() => {
-        setIsActive(true);
-        setCurrentStep(savedProgress ? parseInt(savedProgress, 10) : 0);
-      }, 500);
+    const status = storage.getTourStatus();
+    if (!status) {
+      const timer = setTimeout(() => {
+        const savedProgress = storage.getProgress();
+        setState(prev => ({
+          ...prev,
+          isActive: true,
+          currentStep: savedProgress,
+        }));
+      }, 800);
+      return () => clearTimeout(timer);
     }
-  }, [user?.id]);
+  }, [user?.id, storage]);
 
-  // Find and highlight target element
+  // Language change handler - restart tour if skipped
   useEffect(() => {
-    if (!isActive) {
-      setTargetElement(null);
+    if (!user?.id) return;
+
+    const status = storage.getTourStatus();
+    const skipLang = storage.getSkipLang();
+
+    if (status === 'skipped' && skipLang && skipLang !== language) {
+      storage.clearAll();
+      setState({ isActive: true, currentStep: 0, isTransitioning: false });
+      navigate('/');
+    }
+  }, [language, user?.id, storage, navigate]);
+
+  // Update target rect with ResizeObserver
+  const updateTargetRect = useCallback(() => {
+    const el = targetElementRef.current;
+    if (!el) {
       setTargetRect(null);
       return;
     }
 
-    const step = steps[currentStep];
+    const rect = el.getBoundingClientRect();
+    setTargetRect({
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      height: rect.height,
+      viewportTop: rect.top,
+      viewportLeft: rect.left,
+    });
+  }, []);
+
+  // Find and track target element
+  useEffect(() => {
+    if (!state.isActive || state.isTransitioning) return;
+
+    const step = currentStepData;
     if (!step) return;
 
-    // Check if we're on the right page
+    // Navigate if needed
     if (step.path && step.path !== location.pathname) {
       navigate(step.path);
       return;
     }
 
-    // Find target element
-    const findTarget = () => {
-      if (!step.target) {
-        setTargetElement(null);
-        setTargetRect(null);
-        return;
-      }
-
-      const el = document.querySelector(step.target);
-      if (el) {
-        setTargetElement(el);
-        const rect = el.getBoundingClientRect();
-        setTargetRect({
-          top: rect.top + window.scrollY,
-          left: rect.left + window.scrollX,
-          width: rect.width,
-          height: rect.height,
-        });
-
-        // Scroll element into view
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        // Element not found yet, retry
-        setTimeout(findTarget, 200);
-      }
-    };
-
-    const timer = setTimeout(findTarget, 300);
-    return () => clearTimeout(timer);
-  }, [isActive, currentStep, steps, location.pathname, navigate]);
-
-  // Handle window resize
-  useEffect(() => {
-    if (!targetElement) return;
-
-    const updateRect = () => {
-      const rect = targetElement.getBoundingClientRect();
-      setTargetRect({
-        top: rect.top + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-        height: rect.height,
-      });
-    };
-
-    window.addEventListener('resize', updateRect);
-    window.addEventListener('scroll', updateRect);
-
-    return () => {
-      window.removeEventListener('resize', updateRect);
-      window.removeEventListener('scroll', updateRect);
-    };
-  }, [targetElement]);
-
-  // Handle click on target element
-  useEffect(() => {
-    if (!isActive || !targetElement) return;
-
-    const step = steps[currentStep];
-    if (!step?.waitForClick) return;
-
-    const handleClick = () => {
-      // Save progress
-      localStorage.setItem(getProgressKey(), String(currentStep + 1));
-
-      if (step.nextPath) {
-        navigate(step.nextPath);
-      }
-
-      setTimeout(() => {
-        setCurrentStep(prev => prev + 1);
-      }, 100);
-    };
-
-    targetElement.addEventListener('click', handleClick);
-    return () => targetElement.removeEventListener('click', handleClick);
-  }, [isActive, targetElement, currentStep, steps, navigate]);
-
-  const nextStep = () => {
-    const step = steps[currentStep];
-
-    if (currentStep >= steps.length - 1) {
-      completeTour();
+    // No target = centered modal
+    if (!step.target) {
+      targetElementRef.current = null;
+      setTargetRect(null);
       return;
     }
 
-    localStorage.setItem(getProgressKey(), String(currentStep + 1));
+    // Find element with retry
+    let attempts = 0;
+    const maxAttempts = 20;
 
-    if (step?.nextPath && !step.waitForClick) {
-      navigate(step.nextPath);
-    }
+    const findElement = () => {
+      const el = document.querySelector(step.target);
 
-    setCurrentStep(prev => prev + 1);
-  };
+      if (el) {
+        targetElementRef.current = el;
+        updateTargetRect();
 
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
+        // Scroll into view smoothly
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
 
-  const skipTour = () => {
-    localStorage.setItem(getTourKey(), 'skipped');
-    localStorage.setItem(getSkipLangKey(), language); // Save language when skipping
-    localStorage.removeItem(getProgressKey());
-    setIsActive(false);
-  };
+        // Setup ResizeObserver
+        if (observerRef.current) observerRef.current.disconnect();
+        observerRef.current = new ResizeObserver(updateTargetRect);
+        observerRef.current.observe(el);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(findElement, 150);
+      } else if (step.optional) {
+        // Skip optional steps if target not found
+        goToStep(state.currentStep + 1);
+      }
+    };
 
-  const completeTour = () => {
-    localStorage.setItem(getTourKey(), 'completed');
-    localStorage.removeItem(getProgressKey());
-    localStorage.removeItem(getSkipLangKey());
-    setIsActive(false);
-  };
+    const timer = setTimeout(findElement, 100);
 
-  // Reset tour if language changed after skipping (user wants tour in new language)
+    return () => {
+      clearTimeout(timer);
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [state.isActive, state.currentStep, state.isTransitioning, location.pathname, currentStepData, navigate, updateTargetRect]);
+
+  // Window resize/scroll handler
   useEffect(() => {
-    if (!user?.id) return;
+    if (!targetElementRef.current) return;
 
-    const tourStatus = localStorage.getItem(getTourKey());
-    const skipLang = localStorage.getItem(getSkipLangKey());
+    window.addEventListener('resize', updateTargetRect);
+    window.addEventListener('scroll', updateTargetRect, true);
 
-    // If tour was skipped and language changed, restart tour
-    if (tourStatus === 'skipped' && skipLang && skipLang !== language) {
-      localStorage.removeItem(getTourKey());
-      localStorage.removeItem(getSkipLangKey());
-      localStorage.removeItem(getProgressKey());
-      setCurrentStep(0);
-      setIsActive(true);
-      navigate('/');
+    return () => {
+      window.removeEventListener('resize', updateTargetRect);
+      window.removeEventListener('scroll', updateTargetRect, true);
+    };
+  }, [updateTargetRect]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!state.isActive) return;
+
+    const handleKeyDown = (e) => {
+      switch (e.key) {
+        case 'Escape':
+          skipTour();
+          break;
+        case 'ArrowRight':
+        case 'Enter':
+          if (!currentStepData?.waitForClick) nextStep();
+          break;
+        case 'ArrowLeft':
+          if (!currentStepData?.waitForClick && state.currentStep > 0) prevStep();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.isActive, state.currentStep, currentStepData]);
+
+  // Click handler for waitForClick steps
+  useEffect(() => {
+    if (!state.isActive || !targetElementRef.current) return;
+    if (!currentStepData?.waitForClick) return;
+
+    const el = targetElementRef.current;
+
+    const handleClick = () => {
+      storage.setProgress(state.currentStep + 1);
+
+      if (currentStepData.nextPath) {
+        navigate(currentStepData.nextPath);
+      }
+
+      setTimeout(() => goToStep(state.currentStep + 1), 150);
+    };
+
+    el.addEventListener('click', handleClick);
+    return () => el.removeEventListener('click', handleClick);
+  }, [state.isActive, state.currentStep, currentStepData, storage, navigate]);
+
+  // Navigation functions
+  const goToStep = useCallback((stepIndex) => {
+    if (stepIndex < 0 || stepIndex >= steps.length) return;
+
+    setState(prev => ({ ...prev, isTransitioning: true }));
+
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        currentStep: stepIndex,
+        isTransitioning: false,
+      }));
+      storage.setProgress(stepIndex);
+    }, ANIMATION_DURATION);
+  }, [steps.length, storage]);
+
+  const nextStep = useCallback(() => {
+    if (state.currentStep >= steps.length - 1) {
+      completeTour();
+    } else {
+      goToStep(state.currentStep + 1);
     }
+  }, [state.currentStep, steps.length, goToStep]);
 
-    previousLanguage.current = language;
-  }, [language, user?.id, navigate]);
+  const prevStep = useCallback(() => {
+    if (state.currentStep > 0) {
+      goToStep(state.currentStep - 1);
+    }
+  }, [state.currentStep, goToStep]);
 
-  const restartTour = () => {
-    localStorage.removeItem(getTourKey());
-    localStorage.removeItem(getProgressKey());
-    setCurrentStep(0);
-    setIsActive(true);
+  const skipTour = useCallback(() => {
+    storage.setTourStatus('skipped');
+    storage.setSkipLang(language);
+    setState(prev => ({ ...prev, isActive: false }));
+  }, [storage, language]);
+
+  const completeTour = useCallback(() => {
+    storage.setTourStatus('completed');
+    storage.clearAll();
+    storage.setTourStatus('completed'); // Re-set after clear
+    setState(prev => ({ ...prev, isActive: false }));
+  }, [storage]);
+
+  const restartTour = useCallback(() => {
+    storage.clearAll();
+    setState({ isActive: true, currentStep: 0, isTransitioning: false });
     navigate('/');
-  };
+  }, [storage, navigate]);
 
-  const currentStepData = steps[currentStep];
+  const contextValue = useMemo(() => ({
+    isActive: state.isActive,
+    currentStep: state.currentStep,
+    totalSteps: steps.length,
+    restartTour,
+  }), [state.isActive, state.currentStep, steps.length, restartTour]);
 
   return (
-    <TourContext.Provider value={{ isActive, restartTour, currentStep, totalSteps: steps.length }}>
+    <TourContext.Provider value={contextValue}>
       {children}
 
-      {isActive && currentStepData && (
+      {state.isActive && currentStepData && (
         <TourOverlay
           step={currentStepData}
-          stepNumber={currentStep + 1}
+          stepNumber={state.currentStep + 1}
           totalSteps={steps.length}
           targetRect={targetRect}
+          isTransitioning={state.isTransitioning}
           onNext={nextStep}
           onPrev={prevStep}
           onSkip={skipTour}
-          isFirst={currentStep === 0}
-          isLast={currentStep === steps.length - 1}
+          isFirst={state.currentStep === 0}
+          isLast={state.currentStep === steps.length - 1}
         />
       )}
     </TourContext.Provider>
@@ -371,269 +452,375 @@ export function TourProvider({ children, user }) {
 }
 
 // Tour Overlay Component
-function TourOverlay({ step, stepNumber, totalSteps, targetRect, onNext, onPrev, onSkip, isFirst, isLast }) {
+function TourOverlay({
+  step,
+  stepNumber,
+  totalSteps,
+  targetRect,
+  isTransitioning,
+  onNext,
+  onPrev,
+  onSkip,
+  isFirst,
+  isLast
+}) {
   const { t } = useLanguage();
-  const padding = 8;
+  const tooltipRef = useRef(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [arrowPosition, setArrowPosition] = useState({ side: 'top', offset: 50 });
 
-  // Calculate tooltip position
-  const getTooltipStyle = () => {
-    if (!targetRect || step.position === 'center') {
-      return {
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-      };
-    }
+  // Calculate optimal tooltip position
+  useEffect(() => {
+    if (!tooltipRef.current) return;
 
-    const tooltipWidth = 320;
-    const tooltipHeight = 200;
-    const arrowSize = 12;
-    const gap = 16;
+    const tooltip = tooltipRef.current;
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
 
     let top, left;
+    let arrowSide = step.position;
+    let arrowOffset = 50;
 
-    switch (step.position) {
-      case 'bottom':
-        top = targetRect.top + targetRect.height + gap;
-        left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-        break;
-      case 'top':
-        top = targetRect.top - tooltipHeight - gap;
-        left = targetRect.left + targetRect.width / 2 - tooltipWidth / 2;
-        break;
-      case 'left':
-        top = targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
-        left = targetRect.left - tooltipWidth - gap;
-        break;
-      case 'right':
-        top = targetRect.top + targetRect.height / 2 - tooltipHeight / 2;
-        left = targetRect.left + targetRect.width + gap;
-        break;
-      default:
-        top = targetRect.top + targetRect.height + gap;
-        left = targetRect.left;
+    if (!targetRect || step.position === 'center') {
+      top = (viewport.height - tooltipRect.height) / 2;
+      left = (viewport.width - tooltipRect.width) / 2;
+      setTooltipPosition({ top, left });
+      setArrowPosition({ side: 'none', offset: 0 });
+      return;
     }
 
-    // Keep tooltip in viewport
-    left = Math.max(16, Math.min(left, window.innerWidth - tooltipWidth - 16));
-    top = Math.max(16, top);
+    const padding = SPOTLIGHT_PADDING;
+    const gap = TOOLTIP_GAP;
 
-    return {
-      position: 'absolute',
-      top: `${top}px`,
-      left: `${left}px`,
-      width: `${tooltipWidth}px`,
-    };
-  };
-
-  // Arrow position
-  const getArrowStyle = () => {
-    if (!targetRect || step.position === 'center') return { display: 'none' };
-
-    const base = {
-      position: 'absolute',
-      width: 0,
-      height: 0,
-      borderStyle: 'solid',
-    };
-
+    // Calculate position based on step.position preference
     switch (step.position) {
       case 'bottom':
-        return {
-          ...base,
-          top: '-10px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          borderWidth: '0 10px 10px 10px',
-          borderColor: 'transparent transparent white transparent',
-        };
+        top = targetRect.viewportTop + targetRect.height + gap + padding;
+        left = targetRect.viewportLeft + targetRect.width / 2 - tooltipRect.width / 2;
+        arrowSide = 'top';
+        break;
       case 'top':
-        return {
-          ...base,
-          bottom: '-10px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          borderWidth: '10px 10px 0 10px',
-          borderColor: 'white transparent transparent transparent',
-        };
+        top = targetRect.viewportTop - tooltipRect.height - gap - padding;
+        left = targetRect.viewportLeft + targetRect.width / 2 - tooltipRect.width / 2;
+        arrowSide = 'bottom';
+        break;
       case 'left':
-        return {
-          ...base,
-          right: '-10px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          borderWidth: '10px 0 10px 10px',
-          borderColor: 'transparent transparent transparent white',
-        };
+        top = targetRect.viewportTop + targetRect.height / 2 - tooltipRect.height / 2;
+        left = targetRect.viewportLeft - tooltipRect.width - gap - padding;
+        arrowSide = 'right';
+        break;
       case 'right':
-        return {
-          ...base,
-          left: '-10px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          borderWidth: '10px 10px 10px 0',
-          borderColor: 'transparent white transparent transparent',
-        };
+        top = targetRect.viewportTop + targetRect.height / 2 - tooltipRect.height / 2;
+        left = targetRect.viewportLeft + targetRect.width + gap + padding;
+        arrowSide = 'left';
+        break;
       default:
-        return { display: 'none' };
+        top = targetRect.viewportTop + targetRect.height + gap;
+        left = targetRect.viewportLeft;
     }
-  };
+
+    // Clamp to viewport
+    const margin = 16;
+
+    if (left < margin) {
+      arrowOffset = Math.max(10, 50 + (left - margin) / tooltipRect.width * 100);
+      left = margin;
+    } else if (left + tooltipRect.width > viewport.width - margin) {
+      arrowOffset = Math.min(90, 50 + (left + tooltipRect.width - viewport.width + margin) / tooltipRect.width * 100);
+      left = viewport.width - tooltipRect.width - margin;
+    }
+
+    if (top < margin) {
+      top = margin;
+    } else if (top + tooltipRect.height > viewport.height - margin) {
+      top = viewport.height - tooltipRect.height - margin;
+    }
+
+    setTooltipPosition({ top, left });
+    setArrowPosition({ side: arrowSide, offset: arrowOffset });
+  }, [targetRect, step.position]);
+
+  const progress = (stepNumber / totalSteps) * 100;
 
   return (
-    <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: 'none' }}>
-      {/* Overlay with spotlight cutout */}
-      <svg className="absolute inset-0 w-full h-full">
-        <defs>
-          <mask id="spotlight-mask">
-            <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {targetRect && (
-              <rect
-                x={targetRect.left - padding}
-                y={targetRect.top - padding}
-                width={targetRect.width + padding * 2}
-                height={targetRect.height + padding * 2}
-                rx="8"
-                fill="black"
-              />
-            )}
-          </mask>
-        </defs>
-        <rect
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          fill="rgba(0, 0, 0, 0.75)"
-          mask="url(#spotlight-mask)"
-        />
-      </svg>
+    <div
+      className="fixed inset-0 z-[9999]"
+      style={{ pointerEvents: 'none' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('tourStepWelcome')}
+    >
+      {/* Animated backdrop */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
+        style={{ pointerEvents: 'auto' }}
+      >
+        {/* SVG Spotlight mask */}
+        <svg className="absolute inset-0 w-full h-full">
+          <defs>
+            <mask id="tour-spotlight-mask">
+              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              {targetRect && (
+                <rect
+                  x={targetRect.left - SPOTLIGHT_PADDING}
+                  y={targetRect.top - SPOTLIGHT_PADDING}
+                  width={targetRect.width + SPOTLIGHT_PADDING * 2}
+                  height={targetRect.height + SPOTLIGHT_PADDING * 2}
+                  rx="12"
+                  fill="black"
+                  className="transition-all duration-300 ease-out"
+                />
+              )}
+            </mask>
+            {/* Glow filter for spotlight */}
+            <filter id="tour-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-      {/* Highlight border around target */}
-      {targetRect && (
-        <div
-          className="absolute border-2 border-primary rounded-lg pointer-events-none animate-pulse-border"
-          style={{
-            top: targetRect.top - padding,
-            left: targetRect.left - padding,
-            width: targetRect.width + padding * 2,
-            height: targetRect.height + padding * 2,
-            boxShadow: '0 0 0 4px rgba(22, 48, 108, 0.3), 0 0 20px rgba(22, 48, 108, 0.5)',
-          }}
-        />
-      )}
+          {/* Dark overlay with cutout */}
+          <rect
+            x="0"
+            y="0"
+            width="100%"
+            height="100%"
+            fill="rgba(15, 23, 42, 0.85)"
+            mask="url(#tour-spotlight-mask)"
+            className="transition-all duration-300"
+          />
+        </svg>
 
-      {/* Click overlay for non-target areas - allows header clicks for language toggle */}
-      {!step.waitForClick && (
-        <div
-          className="absolute inset-0"
-          style={{ top: '64px', pointerEvents: 'auto' }} /* Skip header area (h-16 = 64px) */
-          onClick={(e) => {
-            // Allow clicking through to target element area
-            if (targetRect) {
-              const { clientX, clientY } = e;
-              const inTarget =
-                clientX >= targetRect.left - padding &&
-                clientX <= targetRect.left + targetRect.width + padding &&
-                clientY >= targetRect.top - padding &&
-                clientY <= targetRect.top + targetRect.height + padding;
-              if (inTarget) return;
-            }
-            e.stopPropagation();
-          }}
-        />
-      )}
+        {/* Spotlight ring effect */}
+        {targetRect && (
+          <div
+            className="absolute rounded-xl transition-all duration-300 ease-out"
+            style={{
+              top: targetRect.top - SPOTLIGHT_PADDING,
+              left: targetRect.left - SPOTLIGHT_PADDING,
+              width: targetRect.width + SPOTLIGHT_PADDING * 2,
+              height: targetRect.height + SPOTLIGHT_PADDING * 2,
+              boxShadow: `
+                0 0 0 3px rgba(249, 191, 63, 0.8),
+                0 0 0 6px rgba(249, 191, 63, 0.4),
+                0 0 30px rgba(249, 191, 63, 0.6),
+                inset 0 0 20px rgba(249, 191, 63, 0.1)
+              `,
+              animation: step.waitForClick ? 'tour-pulse 2s ease-in-out infinite' : 'none',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Click blocker (excludes header for language toggle) */}
+        {!step.waitForClick && (
+          <div
+            className="absolute left-0 right-0 bottom-0"
+            style={{ top: '64px', pointerEvents: 'auto' }}
+            onClick={(e) => {
+              if (targetRect) {
+                const { clientX, clientY } = e;
+                const inTarget =
+                  clientX >= targetRect.viewportLeft - SPOTLIGHT_PADDING &&
+                  clientX <= targetRect.viewportLeft + targetRect.width + SPOTLIGHT_PADDING &&
+                  clientY >= targetRect.viewportTop - SPOTLIGHT_PADDING &&
+                  clientY <= targetRect.viewportTop + targetRect.height + SPOTLIGHT_PADDING;
+                if (inTarget) return;
+              }
+              e.stopPropagation();
+            }}
+          />
+        )}
+      </div>
 
       {/* Tooltip */}
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 z-10 animate-fade-in"
-        style={{ ...getTooltipStyle(), pointerEvents: 'auto' }}
+        ref={tooltipRef}
+        className={`fixed bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden
+          transition-all duration-300 ease-out transform
+          ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
+          ${step.position === 'center' ? 'max-w-md' : 'w-80'}
+        `}
+        style={{
+          top: `${tooltipPosition.top}px`,
+          left: `${tooltipPosition.left}px`,
+          pointerEvents: 'auto',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.1)',
+        }}
       >
-        {/* Arrow */}
-        <div style={getArrowStyle()} className="dark:border-gray-800" />
-
-        {/* Progress */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-primary dark:text-blue-400">
-            {stepNumber} / {totalSteps}
-          </span>
-          <div className="flex gap-1">
-            {Array.from({ length: totalSteps }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  i < stepNumber
-                    ? 'bg-primary dark:bg-blue-400'
-                    : 'bg-gray-200 dark:bg-gray-600'
-                }`}
-              />
-            ))}
-          </div>
+        {/* Progress bar */}
+        <div className="h-1 bg-gray-100 dark:bg-gray-700">
+          <div
+            className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
         </div>
 
-        {/* Content */}
-        <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-          {step.title}
-        </h3>
-        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-4">
-          {step.content}
-        </p>
-
-        {/* Click hint for waitForClick steps */}
-        {step.waitForClick && targetRect && (
-          <div className="flex items-center gap-2 text-primary dark:text-blue-400 text-sm font-medium mb-4 animate-pulse">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-            </svg>
-            {t('tourClickHere')}
-          </div>
+        {/* Arrow */}
+        {arrowPosition.side !== 'none' && targetRect && (
+          <div
+            className="absolute w-4 h-4 bg-white dark:bg-gray-800 transform rotate-45"
+            style={{
+              ...(arrowPosition.side === 'top' && {
+                top: '-8px',
+                left: `${arrowPosition.offset}%`,
+                marginLeft: '-8px',
+                boxShadow: '-2px -2px 4px rgba(0,0,0,0.1)',
+              }),
+              ...(arrowPosition.side === 'bottom' && {
+                bottom: '-8px',
+                left: `${arrowPosition.offset}%`,
+                marginLeft: '-8px',
+                boxShadow: '2px 2px 4px rgba(0,0,0,0.1)',
+              }),
+              ...(arrowPosition.side === 'left' && {
+                left: '-8px',
+                top: '50%',
+                marginTop: '-8px',
+                boxShadow: '-2px 2px 4px rgba(0,0,0,0.1)',
+              }),
+              ...(arrowPosition.side === 'right' && {
+                right: '-8px',
+                top: '50%',
+                marginTop: '-8px',
+                boxShadow: '2px -2px 4px rgba(0,0,0,0.1)',
+              }),
+            }}
+          />
         )}
 
-        {/* Buttons */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onSkip}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm transition-colors"
-          >
-            {t('tourSkip')}
-          </button>
+        {/* Content */}
+        <div className="p-5">
+          {/* Header with icon */}
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/10 to-secondary/10
+              dark:from-primary/20 dark:to-secondary/20 flex items-center justify-center text-xl flex-shrink-0">
+              {step.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-semibold text-primary dark:text-blue-400 uppercase tracking-wide">
+                  {stepNumber} / {totalSteps}
+                </span>
+                <button
+                  onClick={onSkip}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
+                    transition-colors p-1 -m-1 rounded"
+                  aria-label={t('tourSkip')}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                {step.title}
+              </h3>
+            </div>
+          </div>
 
-          <div className="flex gap-2">
-            {!isFirst && !step.waitForClick && (
-              <button
-                onClick={onPrev}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                {t('previous')}
-              </button>
-            )}
+          {/* Description */}
+          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-4">
+            {step.content}
+          </p>
+
+          {/* Click hint */}
+          {step.waitForClick && targetRect && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/10
+              dark:bg-secondary/20 text-secondary-700 dark:text-secondary-400 text-sm font-medium mb-4">
+              <svg className="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+              {t('tourClickHere')}
+            </div>
+          )}
+
+          {/* Navigation buttons */}
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={onSkip}
+              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400
+                dark:hover:text-gray-200 transition-colors font-medium"
+            >
+              {t('tourSkip')}
+            </button>
+
+            <div className="flex items-center gap-2">
+              {!isFirst && !step.waitForClick && (
+                <button
+                  onClick={onPrev}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200
+                    dark:border-gray-600 text-gray-700 dark:text-gray-300
+                    hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
+                    flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  {t('previous')}
+                </button>
+              )}
+
+              {!step.waitForClick && (
+                <button
+                  onClick={onNext}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r
+                    from-primary to-primary-600 hover:from-primary-600 hover:to-primary-700
+                    text-white shadow-lg shadow-primary/25 hover:shadow-primary/40
+                    transition-all transform hover:scale-[1.02] flex items-center gap-1"
+                >
+                  {isLast ? t('tourFinish') : t('next')}
+                  {!isLast && (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Keyboard hint */}
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700
+            text-xs text-gray-400 dark:text-gray-500 flex items-center justify-center gap-4">
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono">Esc</kbd>
+              {t('tourSkip')}
+            </span>
             {!step.waitForClick && (
-              <button
-                onClick={onNext}
-                className="px-4 py-1.5 text-sm rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors font-medium"
-              >
-                {isLast ? t('tourFinish') : t('next')}
-              </button>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono">→</kbd>
+                {t('next')}
+              </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Styles */}
+      {/* Global styles */}
       <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-        @keyframes pulse-border {
-          0%, 100% { box-shadow: 0 0 0 4px rgba(22, 48, 108, 0.3), 0 0 20px rgba(22, 48, 108, 0.5); }
-          50% { box-shadow: 0 0 0 8px rgba(22, 48, 108, 0.2), 0 0 30px rgba(22, 48, 108, 0.7); }
-        }
-        .animate-pulse-border {
-          animation: pulse-border 2s ease-in-out infinite;
+        @keyframes tour-pulse {
+          0%, 100% {
+            box-shadow:
+              0 0 0 3px rgba(249, 191, 63, 0.8),
+              0 0 0 6px rgba(249, 191, 63, 0.4),
+              0 0 30px rgba(249, 191, 63, 0.6),
+              inset 0 0 20px rgba(249, 191, 63, 0.1);
+          }
+          50% {
+            box-shadow:
+              0 0 0 5px rgba(249, 191, 63, 1),
+              0 0 0 10px rgba(249, 191, 63, 0.5),
+              0 0 50px rgba(249, 191, 63, 0.8),
+              inset 0 0 30px rgba(249, 191, 63, 0.2);
+          }
         }
       `}</style>
     </div>
