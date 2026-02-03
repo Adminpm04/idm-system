@@ -464,81 +464,90 @@ function TourOverlay({
 }) {
   const { t } = useLanguage();
   const tooltipRef = useRef(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [tooltipPosition, setTooltipPosition] = useState(null); // null = not calculated yet
   const [arrowPosition, setArrowPosition] = useState({ side: 'top', offset: 50 });
 
   // Calculate optimal tooltip position
   useEffect(() => {
     if (!tooltipRef.current) return;
 
-    const tooltip = tooltipRef.current;
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const viewport = {
-      width: window.innerWidth,
-      height: window.innerHeight,
+    // Use RAF to ensure layout is complete
+    const calculatePosition = () => {
+      const tooltip = tooltipRef.current;
+      if (!tooltip) return;
+
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const viewport = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+
+      let top, left;
+      let arrowSide = step.position;
+      let arrowOffset = 50;
+
+      if (!targetRect || step.position === 'center') {
+        top = (viewport.height - tooltipRect.height) / 2;
+        left = (viewport.width - tooltipRect.width) / 2;
+        setTooltipPosition({ top, left });
+        setArrowPosition({ side: 'none', offset: 0 });
+        return;
+      }
+
+      const padding = SPOTLIGHT_PADDING;
+      const gap = TOOLTIP_GAP;
+
+      // Calculate position based on step.position preference
+      switch (step.position) {
+        case 'bottom':
+          top = targetRect.viewportTop + targetRect.height + gap + padding;
+          left = targetRect.viewportLeft + targetRect.width / 2 - tooltipRect.width / 2;
+          arrowSide = 'top';
+          break;
+        case 'top':
+          top = targetRect.viewportTop - tooltipRect.height - gap - padding;
+          left = targetRect.viewportLeft + targetRect.width / 2 - tooltipRect.width / 2;
+          arrowSide = 'bottom';
+          break;
+        case 'left':
+          top = targetRect.viewportTop + targetRect.height / 2 - tooltipRect.height / 2;
+          left = targetRect.viewportLeft - tooltipRect.width - gap - padding;
+          arrowSide = 'right';
+          break;
+        case 'right':
+          top = targetRect.viewportTop + targetRect.height / 2 - tooltipRect.height / 2;
+          left = targetRect.viewportLeft + targetRect.width + gap + padding;
+          arrowSide = 'left';
+          break;
+        default:
+          top = targetRect.viewportTop + targetRect.height + gap;
+          left = targetRect.viewportLeft;
+      }
+
+      // Clamp to viewport
+      const margin = 16;
+
+      if (left < margin) {
+        arrowOffset = Math.max(10, 50 + (left - margin) / tooltipRect.width * 100);
+        left = margin;
+      } else if (left + tooltipRect.width > viewport.width - margin) {
+        arrowOffset = Math.min(90, 50 + (left + tooltipRect.width - viewport.width + margin) / tooltipRect.width * 100);
+        left = viewport.width - tooltipRect.width - margin;
+      }
+
+      if (top < margin) {
+        top = margin;
+      } else if (top + tooltipRect.height > viewport.height - margin) {
+        top = viewport.height - tooltipRect.height - margin;
+      }
+
+      setTooltipPosition({ top, left });
+      setArrowPosition({ side: arrowSide, offset: arrowOffset });
     };
 
-    let top, left;
-    let arrowSide = step.position;
-    let arrowOffset = 50;
-
-    if (!targetRect || step.position === 'center') {
-      top = (viewport.height - tooltipRect.height) / 2;
-      left = (viewport.width - tooltipRect.width) / 2;
-      setTooltipPosition({ top, left });
-      setArrowPosition({ side: 'none', offset: 0 });
-      return;
-    }
-
-    const padding = SPOTLIGHT_PADDING;
-    const gap = TOOLTIP_GAP;
-
-    // Calculate position based on step.position preference
-    switch (step.position) {
-      case 'bottom':
-        top = targetRect.viewportTop + targetRect.height + gap + padding;
-        left = targetRect.viewportLeft + targetRect.width / 2 - tooltipRect.width / 2;
-        arrowSide = 'top';
-        break;
-      case 'top':
-        top = targetRect.viewportTop - tooltipRect.height - gap - padding;
-        left = targetRect.viewportLeft + targetRect.width / 2 - tooltipRect.width / 2;
-        arrowSide = 'bottom';
-        break;
-      case 'left':
-        top = targetRect.viewportTop + targetRect.height / 2 - tooltipRect.height / 2;
-        left = targetRect.viewportLeft - tooltipRect.width - gap - padding;
-        arrowSide = 'right';
-        break;
-      case 'right':
-        top = targetRect.viewportTop + targetRect.height / 2 - tooltipRect.height / 2;
-        left = targetRect.viewportLeft + targetRect.width + gap + padding;
-        arrowSide = 'left';
-        break;
-      default:
-        top = targetRect.viewportTop + targetRect.height + gap;
-        left = targetRect.viewportLeft;
-    }
-
-    // Clamp to viewport
-    const margin = 16;
-
-    if (left < margin) {
-      arrowOffset = Math.max(10, 50 + (left - margin) / tooltipRect.width * 100);
-      left = margin;
-    } else if (left + tooltipRect.width > viewport.width - margin) {
-      arrowOffset = Math.min(90, 50 + (left + tooltipRect.width - viewport.width + margin) / tooltipRect.width * 100);
-      left = viewport.width - tooltipRect.width - margin;
-    }
-
-    if (top < margin) {
-      top = margin;
-    } else if (top + tooltipRect.height > viewport.height - margin) {
-      top = viewport.height - tooltipRect.height - margin;
-    }
-
-    setTooltipPosition({ top, left });
-    setArrowPosition({ side: arrowSide, offset: arrowOffset });
+    // Use RAF to ensure layout is complete before measuring
+    const rafId = requestAnimationFrame(calculatePosition);
+    return () => cancelAnimationFrame(rafId);
   }, [targetRect, step.position]);
 
   const progress = (stepNumber / totalSteps) * 100;
@@ -642,12 +651,13 @@ function TourOverlay({
         ref={tooltipRef}
         className={`fixed bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden
           transition-all duration-300 ease-out transform
-          ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
+          ${isTransitioning || !tooltipPosition ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
           ${step.position === 'center' ? 'max-w-md' : 'w-80'}
         `}
         style={{
-          top: `${tooltipPosition.top}px`,
-          left: `${tooltipPosition.left}px`,
+          top: tooltipPosition ? `${tooltipPosition.top}px` : '50%',
+          left: tooltipPosition ? `${tooltipPosition.left}px` : '50%',
+          transform: tooltipPosition ? 'none' : 'translate(-50%, -50%)',
           pointerEvents: 'auto',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.1)',
         }}
