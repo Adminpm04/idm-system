@@ -1087,10 +1087,11 @@ function Dashboard() {
   );
 }
 
-// Tour Wrapper - wraps routes with TourProvider using user from AuthContext
+// Tour Wrapper - temporarily disabled for debugging
 function TourWrapper({ children }) {
-  const { user } = useAuth();
-  return <TourProvider user={user}>{children}</TourProvider>;
+  // const { user } = useAuth();
+  // return <TourProvider user={user}>{children}</TourProvider>;
+  return children; // Tour disabled - fix blocking issue first
 }
 
 // Main App
