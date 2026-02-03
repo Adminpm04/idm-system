@@ -37,28 +37,53 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
     if db.query(User).filter(User.username == user_in.username).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
         )
-    
+
     # Create user
     user = User(
         **user_in.model_dump(exclude={'password', 'role_ids'}),
         hashed_password=get_password_hash(user_in.password)
     )
-    
+
     # Assign roles if provided
     if user_in.role_ids:
         roles = db.query(Role).filter(Role.id.in_(user_in.role_ids)).all()
         user.roles = roles
-    
+
     db.add(user)
     db.commit()
     db.refresh(user)
     return user
+
+
+# Tour endpoints - must be before /{user_id} routes
+@router.post("/me/tour-complete", response_model=UserResponse)
+async def complete_tour(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark onboarding tour as completed for current user"""
+    current_user.tour_completed = True
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/tour-reset", response_model=UserResponse)
+async def reset_tour(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reset onboarding tour for current user (to see it again)"""
+    current_user.tour_completed = False
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -148,30 +173,6 @@ async def change_password(
     db.commit()
     
     return {"message": "Password updated successfully"}
-
-
-@router.post("/me/tour-complete", response_model=UserResponse)
-async def complete_tour(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Mark onboarding tour as completed for current user"""
-    current_user.tour_completed = True
-    db.commit()
-    db.refresh(current_user)
-    return current_user
-
-
-@router.post("/me/tour-reset", response_model=UserResponse)
-async def reset_tour(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Reset onboarding tour for current user (to see it again)"""
-    current_user.tour_completed = False
-    db.commit()
-    db.refresh(current_user)
-    return current_user
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
