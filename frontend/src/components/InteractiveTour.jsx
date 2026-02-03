@@ -623,58 +623,7 @@ function TourOverlay({
             }}
           />
         )}
-
-        {/* Click blocker - frame around target, allows clicks on target and header */}
-        {!step.waitForClick && targetRect && (
-          <>
-            {/* Top blocker (below header) */}
-            <div
-              className="absolute left-0 right-0"
-              style={{
-                top: '64px',
-                height: Math.max(0, targetRect.viewportTop - SPOTLIGHT_PADDING - 64),
-                pointerEvents: 'auto',
-              }}
-            />
-            {/* Bottom blocker */}
-            <div
-              className="absolute left-0 right-0 bottom-0"
-              style={{
-                top: targetRect.viewportTop + targetRect.height + SPOTLIGHT_PADDING,
-                pointerEvents: 'auto',
-              }}
-            />
-            {/* Left blocker */}
-            <div
-              className="absolute"
-              style={{
-                top: targetRect.viewportTop - SPOTLIGHT_PADDING,
-                left: 0,
-                width: Math.max(0, targetRect.viewportLeft - SPOTLIGHT_PADDING),
-                height: targetRect.height + SPOTLIGHT_PADDING * 2,
-                pointerEvents: 'auto',
-              }}
-            />
-            {/* Right blocker */}
-            <div
-              className="absolute"
-              style={{
-                top: targetRect.viewportTop - SPOTLIGHT_PADDING,
-                left: targetRect.viewportLeft + targetRect.width + SPOTLIGHT_PADDING,
-                right: 0,
-                height: targetRect.height + SPOTLIGHT_PADDING * 2,
-                pointerEvents: 'auto',
-              }}
-            />
-          </>
-        )}
-        {/* Full blocker when no target (centered modal) */}
-        {!step.waitForClick && !targetRect && (
-          <div
-            className="absolute inset-0"
-            style={{ top: '64px', pointerEvents: 'auto' }}
-          />
-        )}
+        {/* No click blockers - page stays fully interactive */}
       </div>
 
       {/* Tooltip */}

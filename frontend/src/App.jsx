@@ -1087,11 +1087,10 @@ function Dashboard() {
   );
 }
 
-// Tour Wrapper - temporarily disabled for debugging
+// Tour Wrapper - wraps routes with TourProvider
 function TourWrapper({ children }) {
-  // const { user } = useAuth();
-  // return <TourProvider user={user}>{children}</TourProvider>;
-  return children; // Tour disabled - fix blocking issue first
+  const { user } = useAuth();
+  return <TourProvider user={user}>{children}</TourProvider>;
 }
 
 // Main App
