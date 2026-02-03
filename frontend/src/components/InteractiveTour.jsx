@@ -29,6 +29,7 @@ export function TourProvider({ children, user }) {
     isTransitioning: false,
   });
   const [targetRect, setTargetRect] = useState(null);
+  const [targetFound, setTargetFound] = useState(false); // Track when element is found
 
   const targetElementRef = useRef(null);
   const observerRef = useRef(null);
@@ -278,8 +279,12 @@ export function TourProvider({ children, user }) {
     if (!step.target) {
       targetElementRef.current = null;
       setTargetRect(null);
+      setTargetFound(false);
       return;
     }
+
+    // Reset targetFound when step changes
+    setTargetFound(false);
 
     // Find element with retry
     let attempts = 0;
@@ -290,6 +295,7 @@ export function TourProvider({ children, user }) {
 
       if (el) {
         targetElementRef.current = el;
+        setTargetFound(true); // Signal that element is found
         updateTargetRect();
 
         // Scroll into view smoothly
@@ -401,12 +407,15 @@ export function TourProvider({ children, user }) {
 
   // Click handler for waitForClick steps
   useEffect(() => {
-    if (!state.isActive || !targetElementRef.current) return;
+    if (!state.isActive || !targetFound || !targetElementRef.current) return;
     if (!currentStepData?.waitForClick) return;
 
     const el = targetElementRef.current;
 
-    const handleClick = () => {
+    const handleClick = (e) => {
+      // Prevent default Link behavior - we'll handle navigation
+      e.preventDefault();
+
       storage.setProgress(state.currentStep + 1);
 
       if (currentStepData.nextPath) {
@@ -418,7 +427,7 @@ export function TourProvider({ children, user }) {
 
     el.addEventListener('click', handleClick);
     return () => el.removeEventListener('click', handleClick);
-  }, [state.isActive, state.currentStep, currentStepData, storage, navigate, goToStep]);
+  }, [state.isActive, state.currentStep, currentStepData, storage, navigate, goToStep, targetFound]);
 
   const contextValue = useMemo(() => ({
     isActive: state.isActive,
