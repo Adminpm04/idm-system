@@ -190,18 +190,8 @@ export function TourProvider({ children, user }) {
     }
   }, [user?.id, store]);
 
-  // Language change - restart if skipped
-  useEffect(() => {
-    if (!user?.id) return;
-    const status = store.getStatus();
-    const lang = store.getLang();
-    if (status === 'skipped' && lang && lang !== language) {
-      store.clear();
-      setStep(0);
-      setIsActive(true);
-      navigate('/');
-    }
-  }, [language, user?.id, store, navigate]);
+  // Tour is mandatory - no skip option, only completion
+  // Language change detection removed since tour cannot be skipped
 
   // Lock scroll when tour is active
   useEffect(() => {
@@ -313,11 +303,10 @@ export function TourProvider({ children, user }) {
     return () => el.removeEventListener('click', handler, true);
   }, [isActive, targetReady, step, current, navigate, store]);
 
-  // Keyboard
+  // Keyboard (no Escape - tour is mandatory)
   useEffect(() => {
     if (!isActive) return;
     const handler = (e) => {
-      if (e.key === 'Escape') skip();
       if (e.key === 'ArrowRight' || e.key === 'Enter') {
         if (current?.action !== 'click') goNext();
       }
@@ -350,11 +339,7 @@ export function TourProvider({ children, user }) {
     }, 300);
   }, [step]);
 
-  const skip = useCallback(() => {
-    store.setStatus('skipped');
-    store.setLang(language);
-    setIsActive(false);
-  }, [store, language]);
+  // Tour is mandatory - no skip function
 
   const complete = useCallback(() => {
     store.setStatus('completed');
@@ -380,7 +365,6 @@ export function TourProvider({ children, user }) {
           transitioning={transitioning}
           onNext={goNext}
           onPrev={goPrev}
-          onSkip={skip}
           isFirst={isFirst}
           isLast={isLast}
         />
@@ -389,8 +373,8 @@ export function TourProvider({ children, user }) {
   );
 }
 
-// Tour UI Component
-function TourUI({ step, stepNum, total, rect, transitioning, onNext, onPrev, onSkip, isFirst, isLast }) {
+// Tour UI Component (mandatory - no skip option)
+function TourUI({ step, stepNum, total, rect, transitioning, onNext, onPrev, isFirst, isLast }) {
   const { t } = useLanguage();
   const tooltipRef = useRef(null);
   const [pos, setPos] = useState(null);
@@ -534,20 +518,10 @@ function TourUI({ step, stepNum, total, rect, transitioning, onNext, onPrev, onS
                 {step.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500 uppercase tracking-wider">
-                    {stepNum} / {total}
-                  </span>
-                  <button
-                    onClick={onSkip}
-                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                <span className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500 uppercase tracking-wider">
+                  {stepNum} / {total}
+                </span>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight mt-1">
                   {step.title}
                 </h2>
               </div>
@@ -573,56 +547,48 @@ function TourUI({ step, stepNum, total, rect, transitioning, onNext, onPrev, onS
             )}
 
             {/* Buttons */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={onSkip}
-                className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors font-medium"
-              >
-                {t('tourSkip')}
-              </button>
+            <div className="flex items-center justify-end gap-2">
+              {!isFirst && step.action !== 'click' && (
+                <button
+                  onClick={onPrev}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  {t('previous')}
+                </button>
+              )}
 
-              <div className="flex items-center gap-2">
-                {!isFirst && step.action !== 'click' && (
-                  <button
-                    onClick={onPrev}
-                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center gap-1.5"
-                  >
+              {step.action !== 'click' && (
+                <button
+                  onClick={onNext}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all transform hover:scale-[1.02] flex items-center gap-1.5"
+                >
+                  {isLast ? t('tourFinish') : t('next')}
+                  {!isLast && (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    {t('previous')}
-                  </button>
-                )}
-
-                {step.action !== 'click' && (
-                  <button
-                    onClick={onNext}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all transform hover:scale-[1.02] flex items-center gap-1.5"
-                  >
-                    {isLast ? t('tourFinish') : t('next')}
-                    {!isLast && (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    )}
-                  </button>
-                )}
-              </div>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Keyboard hints */}
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-center gap-6 text-xs text-gray-400">
-              <span className="flex items-center gap-1.5">
-                <kbd className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-mono text-[10px]">Esc</kbd>
-                <span>{t('tourSkip')}</span>
-              </span>
-              {step.action !== 'click' && (
+            {step.action !== 'click' && (
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-center gap-6 text-xs text-gray-400">
                 <span className="flex items-center gap-1.5">
+                  <kbd className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-mono text-[10px]">←</kbd>
                   <kbd className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-mono text-[10px]">→</kbd>
+                  <span>{t('tourNavigate') || 'Navigate'}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 font-mono text-[10px]">Enter</kbd>
                   <span>{t('next')}</span>
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
