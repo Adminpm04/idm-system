@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useCallback, createContext, useContext, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../App';
+import { usersAPI } from '../services/api';
 
 // Tour Context
 const TourContext = createContext(null);
 export const useTour = () => useContext(TourContext);
 
-// Storage keys
-const STORAGE = {
-  status: (id) => `idm_tour_v3_${id}`,
-  progress: (id) => `idm_tour_progress_v3_${id}`,
-  lang: (id) => `idm_tour_lang_${id}`,
-};
+// Storage key for step progress only (so user can continue where they left off)
+const STEP_STORAGE_KEY = (id) => `idm_tour_step_${id}`;
 
 // Tour Provider
 export function TourProvider({ children, user }) {
@@ -163,35 +160,31 @@ export function TourProvider({ children, user }) {
   const isLast = step === steps.length - 1;
   const isFirst = step === 0;
 
-  // Storage helpers
-  const store = useMemo(() => ({
-    getStatus: () => localStorage.getItem(STORAGE.status(user?.id)),
-    setStatus: (s) => localStorage.setItem(STORAGE.status(user?.id), s),
-    getStep: () => parseInt(localStorage.getItem(STORAGE.progress(user?.id)) || '0'),
-    setStep: (s) => localStorage.setItem(STORAGE.progress(user?.id), String(s)),
-    getLang: () => localStorage.getItem(STORAGE.lang(user?.id)),
-    setLang: (l) => localStorage.setItem(STORAGE.lang(user?.id), l),
-    clear: () => {
-      localStorage.removeItem(STORAGE.status(user?.id));
-      localStorage.removeItem(STORAGE.progress(user?.id));
-      localStorage.removeItem(STORAGE.lang(user?.id));
-    },
-  }), [user?.id]);
+  // Step progress helpers (localStorage for resuming on refresh)
+  const getStoredStep = useCallback(() => {
+    return parseInt(localStorage.getItem(STEP_STORAGE_KEY(user?.id)) || '0');
+  }, [user?.id]);
 
-  // Initialize tour
+  const setStoredStep = useCallback((s) => {
+    localStorage.setItem(STEP_STORAGE_KEY(user?.id), String(s));
+  }, [user?.id]);
+
+  const clearStoredStep = useCallback(() => {
+    localStorage.removeItem(STEP_STORAGE_KEY(user?.id));
+  }, [user?.id]);
+
+  // Initialize tour based on user.tour_completed from database
   useEffect(() => {
     if (!user?.id) return;
-    const status = store.getStatus();
-    if (!status) {
+
+    // If user hasn't completed tour, start it
+    if (!user.tour_completed) {
       setTimeout(() => {
-        setStep(store.getStep());
+        setStep(getStoredStep());
         setIsActive(true);
       }, 600);
     }
-  }, [user?.id, store]);
-
-  // Tour is mandatory - no skip option, only completion
-  // Language change detection removed since tour cannot be skipped
+  }, [user?.id, user?.tour_completed, getStoredStep]);
 
   // Lock scroll when tour is active
   useEffect(() => {
@@ -294,14 +287,14 @@ export function TourProvider({ children, user }) {
     const handler = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      store.setStep(step + 1);
+      setStoredStep(step + 1);
       if (current.nextPath) navigate(current.nextPath);
       goNext();
     };
 
     el.addEventListener('click', handler, true);
     return () => el.removeEventListener('click', handler, true);
-  }, [isActive, targetReady, step, current, navigate, store]);
+  }, [isActive, targetReady, step, current, navigate, setStoredStep]);
 
   // Keyboard (no Escape - tour is mandatory)
   useEffect(() => {
@@ -319,16 +312,16 @@ export function TourProvider({ children, user }) {
   // Navigation
   const goNext = useCallback(() => {
     if (isLast) {
-      complete();
+      completeTour();
       return;
     }
     setTransitioning(true);
     setTimeout(() => {
       setStep(s => s + 1);
-      store.setStep(step + 1);
+      setStoredStep(step + 1);
       setTransitioning(false);
     }, 300);
-  }, [isLast, step, store]);
+  }, [isLast, step, setStoredStep]);
 
   const goPrev = useCallback(() => {
     if (step <= 0) return;
@@ -339,19 +332,31 @@ export function TourProvider({ children, user }) {
     }, 300);
   }, [step]);
 
-  // Tour is mandatory - no skip function
+  // Complete tour - save to database
+  const completeTour = useCallback(async () => {
+    try {
+      await usersAPI.completeTour();
+      clearStoredStep();
+      setIsActive(false);
+    } catch (error) {
+      console.error('Failed to complete tour:', error);
+      // Still hide tour even if API fails
+      setIsActive(false);
+    }
+  }, [clearStoredStep]);
 
-  const complete = useCallback(() => {
-    store.setStatus('completed');
-    setIsActive(false);
-  }, [store]);
-
-  const restart = useCallback(() => {
-    store.clear();
-    setStep(0);
-    setIsActive(true);
-    navigate('/');
-  }, [store, navigate]);
+  // Restart tour (for "repeat tour" button in profile)
+  const restart = useCallback(async () => {
+    try {
+      await usersAPI.resetTour();
+      clearStoredStep();
+      setStep(0);
+      setIsActive(true);
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to reset tour:', error);
+    }
+  }, [clearStoredStep, navigate]);
 
   return (
     <TourContext.Provider value={{ isActive, step, total: steps.length, restart }}>

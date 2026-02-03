@@ -39,6 +39,9 @@ class User(Base):
     is_demo = Column(Boolean, default=False, nullable=False)  # Is this a demo account
     demo_expires_at = Column(DateTime(timezone=True), nullable=True)  # When demo access expires
 
+    # Tour status
+    tour_completed = Column(Boolean, default=False, nullable=False)  # Has user completed onboarding tour
+
     # AD-specific fields
     ad_guid = Column(String(36), unique=True, nullable=True, index=True)  # AD objectGUID
     ad_dn = Column(String(500), nullable=True)  # AD distinguishedName

@@ -106,6 +106,8 @@ export const usersAPI = {
   update: (id, data) => api.put('/users/' + id, data),
   delete: (id) => api.delete('/users/' + id),
   changePassword: (id, data) => api.post('/users/' + id + '/change-password', data),
+  completeTour: () => api.post('/users/me/tour-complete'),
+  resetTour: () => api.post('/users/me/tour-reset'),
 };
 
 export const systemsAPI = {

@@ -150,6 +150,30 @@ async def change_password(
     return {"message": "Password updated successfully"}
 
 
+@router.post("/me/tour-complete", response_model=UserResponse)
+async def complete_tour(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark onboarding tour as completed for current user"""
+    current_user.tour_completed = True
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/tour-reset", response_model=UserResponse)
+async def reset_tour(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reset onboarding tour for current user (to see it again)"""
+    current_user.tour_completed = False
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
@@ -160,11 +184,11 @@ async def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Нельзя удалить самого себя
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-    
+
     db.delete(user)
     db.commit()
     return None
