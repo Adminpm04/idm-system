@@ -24,6 +24,8 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
     manager_id: Optional[int] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
@@ -41,6 +43,8 @@ class UserInDB(UserBase):
     is_superuser: bool
     is_demo: bool = False
     tour_completed: bool = False
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime
     last_login: Optional[datetime] = None
     auth_source: Optional[str] = None

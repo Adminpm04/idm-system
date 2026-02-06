@@ -18,7 +18,7 @@ export default function AdminPermissions() {
       setPermissions(res.data);
     } catch (error) {
       console.error('Error loading permissions:', error);
-      alert('Error loading permissions');
+      alert(t('errorLoadingPermissions') || 'Error loading permissions');
     } finally {
       setLoading(false);
     }

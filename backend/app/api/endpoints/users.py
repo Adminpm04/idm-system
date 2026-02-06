@@ -1,11 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr
+import os
+import uuid
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserPasswordUpdate
 from app.models import User, Role
 from app.api.deps import get_current_user, get_current_superuser
 from app.core.security import get_password_hash
+
+
+# Profile update schema
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+
+
+# Avatar upload directory
+AVATAR_DIR = "/opt/idm-system/backend/uploads/avatars"
+os.makedirs(AVATAR_DIR, exist_ok=True)
 
 router = APIRouter()
 
@@ -83,6 +100,107 @@ async def reset_tour(
     current_user.tour_completed = False
     db.commit()
     db.refresh(current_user)
+    return current_user
+
+
+@router.get("/me/profile", response_model=UserResponse)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's profile"""
+    return current_user
+
+
+@router.put("/me/profile", response_model=UserResponse)
+async def update_my_profile(
+    profile_update: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's profile (name, email, phone, etc.)"""
+    update_data = profile_update.model_dump(exclude_unset=True)
+
+    # Check email uniqueness if being changed
+    if 'email' in update_data and update_data['email'] != current_user.email:
+        existing = db.query(User).filter(User.email == update_data['email']).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already in use"
+            )
+
+    # Update fields
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload profile avatar"""
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Allowed: JPEG, PNG, GIF, WebP"
+        )
+
+    # Validate file size (max 5MB)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size: 5MB"
+        )
+
+    # Generate unique filename
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    filename = f"{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join(AVATAR_DIR, filename)
+
+    # Delete old avatar if exists
+    if current_user.avatar_url:
+        old_filename = current_user.avatar_url.split('/')[-1]
+        old_path = os.path.join(AVATAR_DIR, old_filename)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    # Save new avatar
+    with open(filepath, 'wb') as f:
+        f.write(contents)
+
+    # Update user avatar_url
+    current_user.avatar_url = f"/api/uploads/avatars/{filename}"
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user
+
+
+@router.delete("/me/avatar", response_model=UserResponse)
+async def delete_avatar(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete profile avatar"""
+    if current_user.avatar_url:
+        filename = current_user.avatar_url.split('/')[-1]
+        filepath = os.path.join(AVATAR_DIR, filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+        current_user.avatar_url = None
+        db.commit()
+        db.refresh(current_user)
+
     return current_user
 
 

@@ -145,7 +145,7 @@ function CreateRequestPage() {
       setSystems(response.data);
     } catch (err) {
       console.error('Error loading systems:', err);
-      setError('Error loading systems');
+      setError(t('errorLoadingSystems') || 'Error loading systems');
     }
   };
 
@@ -169,7 +169,7 @@ function CreateRequestPage() {
       setUsers(response.data);
     } catch (err) {
       console.error('Error loading users:', err);
-      setError('Error loading users');
+      setError(t('errorLoadingUsers') || 'Error loading users');
     }
   };
 
@@ -180,7 +180,7 @@ function CreateRequestPage() {
       setAccessRoles(response.data);
     } catch (err) {
       console.error('Error loading access roles:', err);
-      setError('Error loading access roles');
+      setError(t('errorLoadingAccessRoles') || 'Error loading access roles');
     } finally {
       setLoadingRoles(false);
     }
@@ -405,7 +405,7 @@ function CreateRequestPage() {
         // SoD violation from backend
         setError(`${t('sodViolation')}: ${detail.message}. ${detail.description || ''}`);
       } else {
-        setError(typeof detail === 'string' ? detail : 'Error creating request');
+        setError(typeof detail === 'string' ? detail : t('errorCreatingRequest') || 'Error creating request');
       }
     } finally {
       setLoading(false);
@@ -764,7 +764,7 @@ function CreateRequestPage() {
               </option>
               {accessRoles.map(role => (
                 <option key={role.id} value={role.id}>
-                  {role.name} - {role.access_level} (risk: {role.risk_level})
+                  {role.name} - {role.access_level} ({t('riskLevel')}: {role.risk_level})
                 </option>
               ))}
             </select>
@@ -967,7 +967,7 @@ function CreateRequestPage() {
                 {t('selectFiles')}
               </button>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)
+                {t('fileFormatHint') || 'PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)'}
               </span>
             </div>
           </div>

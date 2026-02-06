@@ -32,6 +32,7 @@ class User(Base):
     department = Column(String(255), nullable=True)
     position = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
+    avatar_url = Column(String(500), nullable=True)  # Profile photo URL
     manager_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     auth_source = Column(String(20), default='local', nullable=False)  # 'local' or 'ldap'
 

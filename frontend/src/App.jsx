@@ -16,6 +16,7 @@ import GlobalSearch from './components/GlobalSearch';
 import MemoryGame from './components/MemoryGame';
 import { YellowCheckIcon } from './components/Icons';
 import { TourProvider, useTour } from './components/InteractiveTour';
+import UserProfileDropdown from './components/UserProfileDropdown';
 
 // Language Context
 const LanguageContext = createContext(null);
@@ -277,6 +278,15 @@ function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    try {
+      const res = await authAPI.getMe();
+      setUser(res.data);
+    } catch (e) {
+      console.error('Failed to refresh user:', e);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -286,7 +296,7 @@ function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -545,13 +555,14 @@ function LoginPage() {
       const detail = err.response?.data?.detail;
       let errorMsg;
       if (Array.isArray(detail)) {
-        errorMsg = detail[0]?.msg || 'Validation error';
+        errorMsg = detail[0]?.msg || t('validationError') || 'Validation error';
       } else if (typeof detail === 'object') {
         errorMsg = detail?.msg || JSON.stringify(detail);
       } else {
         errorMsg = detail;
       }
       setError(String(errorMsg) || t('invalidCode') || 'Invalid code');
+
     } finally {
       setLoading(false);
     }
@@ -761,7 +772,7 @@ function LoginPage() {
                   onClick={handleBack}
                   className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
-                  ← {t('back') || 'Back to login'}
+                  ← {t('backToLogin') || 'Back to login'}
                 </button>
               </form>
             )}
@@ -827,7 +838,7 @@ function NotificationToggle() {
 
   const handleClick = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Ваш браузер не поддерживает push-уведомления');
+      alert(t('pushNotSupported') || 'Your browser does not support push notifications');
       return;
     }
 
@@ -876,18 +887,18 @@ function NotificationToggle() {
           localStorage.setItem('push_enabled', 'true');
 
           // Show test notification
-          new Notification('Push-уведомления включены', {
-            body: 'Вы будете получать уведомления даже при закрытом браузере',
-            icon: '/vite.svg'
+          new Notification(t('notificationsOn') || 'Push notifications enabled', {
+            body: t('pushEnabledBody') || 'You will receive notifications even when the browser is closed',
+            icon: '/icons/icon-192x192.png'
           });
         } else if (permission === 'denied') {
           setIsDenied(true);
-          alert('Уведомления заблокированы.\n\nЧтобы включить:\n1. Нажмите на 🔒 слева от адреса\n2. Найдите "Уведомления"\n3. Выберите "Разрешить"');
+          alert(t('notificationsDeniedAlert') || 'Notifications are blocked.\n\nTo enable:\n1. Click the lock icon in the address bar\n2. Find "Notifications"\n3. Select "Allow"');
         }
       }
     } catch (e) {
       console.error('Push subscription error:', e);
-      alert('Ошибка при настройке уведомлений: ' + e.message);
+      alert((t('pushSetupError') || 'Error setting up notifications') + ': ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -908,12 +919,12 @@ function NotificationToggle() {
       }`}
       title={
         loading
-          ? 'Загрузка...'
+          ? t('notificationsLoading')
           : isDenied
-            ? (t('notificationsDenied') || 'Уведомления заблокированы')
+            ? t('notificationsBlocked')
             : isActive
-              ? (t('notificationsOn') || 'Push-уведомления включены')
-              : (t('notificationsOff') || 'Включить push-уведомления')
+              ? t('notificationsEnabled')
+              : t('enableNotifications')
       }
     >
       {loading ? (
@@ -1007,12 +1018,7 @@ function Layout({ children }) {
 
             <div className="flex items-center space-x-3">
               <NotificationToggle />
-              <LanguageToggle variant="header" />
-              <ThemeToggle />
-              <span className="text-sm hidden md:inline opacity-90">{user?.full_name}</span>
-              <button onClick={logout} className="btn btn-secondary text-sm shadow-md hover:shadow-lg">
-                {t('logout')}
-              </button>
+              <UserProfileDropdown />
             </div>
           </div>
         </div>
@@ -1185,9 +1191,11 @@ function App() {
                 path="/admin"
                 element={
                   <ProtectedRoute>
-                    <Layout>
-                      <AdminPage />
-                    </Layout>
+                    <AdminRoute>
+                      <Layout>
+                        <AdminPage />
+                      </Layout>
+                    </AdminRoute>
                   </ProtectedRoute>
                 }
               />

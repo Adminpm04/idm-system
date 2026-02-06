@@ -67,28 +67,28 @@ function RequestDetailPage() {
       setRequest(response.data);
     } catch (err) {
       console.error('Error loading request:', err);
-      setError('Error loading request');
+      setError(t('errorLoadingRequest') || 'Error loading request');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!window.confirm('Submit request for approval?')) return;
+    if (!window.confirm(t('submitForApprovalConfirm') || 'Submit request for approval?')) return;
 
     setActionLoading(true);
     try {
       await requestsAPI.submit(id);
       await loadRequest();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error submitting request');
+      alert(err.response?.data?.detail || t('errorSubmittingRequest') || 'Error submitting request');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleApprove = async () => {
-    const comment = window.prompt('Comment (optional):');
+    const comment = window.prompt(t('commentOptional') || 'Comment (optional):');
     if (comment === null) return; // Cancel clicked
 
     setActionLoading(true);
@@ -98,16 +98,16 @@ function RequestDetailPage() {
         comment: comment || undefined
       });
       await loadRequest();
-      alert('Request approved successfully!');
+      alert(t('requestApprovedSuccess') || 'Request approved successfully!');
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error approving');
+      alert(err.response?.data?.detail || t('errorApproving') || 'Error approving');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleReject = async () => {
-    const comment = window.prompt('Reason for rejection (required):');
+    const comment = window.prompt(t('rejectionReasonRequired') || 'Reason for rejection (required):');
     if (!comment) return;
 
     setActionLoading(true);
@@ -117,9 +117,9 @@ function RequestDetailPage() {
         comment
       });
       await loadRequest();
-      alert('Request rejected');
+      alert(t('requestRejected') || 'Request rejected');
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error rejecting');
+      alert(err.response?.data?.detail || t('errorRejecting') || 'Error rejecting');
     } finally {
       setActionLoading(false);
     }
@@ -135,7 +135,7 @@ function RequestDetailPage() {
       setComment('');
       await loadRequest();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error adding comment');
+      alert(err.response?.data?.detail || t('errorAddingComment') || 'Error adding comment');
     } finally {
       setAddingComment(false);
     }
@@ -160,7 +160,7 @@ function RequestDetailPage() {
       if (fileInputRef.current) fileInputRef.current.value = '';
       await loadRequest();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error uploading file');
+      alert(err.response?.data?.detail || t('errorUploadingFile') || 'Error uploading file');
     } finally {
       setUploadingFile(false);
     }
@@ -178,7 +178,7 @@ function RequestDetailPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error downloading file');
+      alert(err.response?.data?.detail || t('errorDownloadingFile') || 'Error downloading file');
     }
   };
 
@@ -189,7 +189,7 @@ function RequestDetailPage() {
       await requestsAPI.deleteAttachment(id, attachmentId);
       await loadRequest();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error deleting attachment');
+      alert(err.response?.data?.detail || t('errorDeletingAttachment') || 'Error deleting attachment');
     }
   };
 
@@ -554,7 +554,7 @@ function RequestDetailPage() {
                     {uploadingFile ? t('uploading') : t('selectFile')}
                   </button>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)
+                    {t('fileFormatHint') || 'PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)'}
                   </span>
                 </div>
               </div>

@@ -59,7 +59,7 @@ export default function AdminUsers() {
       setUsers(filteredUsers);
     } catch (error) {
       console.error('Error loading users:', error);
-      alert('Error loading users');
+      alert(t('errorLoadingUsers') || 'Error loading users');
     } finally {
       setLoading(false);
     }

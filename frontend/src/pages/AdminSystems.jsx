@@ -40,7 +40,7 @@ export default function AdminSystems() {
       setSystems(res.data);
     } catch (error) {
       console.error('Error loading systems:', error);
-      alert('Error loading systems');
+      alert(t('errorLoadingSystems') || 'Error loading systems');
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function AdminSystems() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('code')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('criticality')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('description')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('status') || 'Status'}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">{t('actions')}</th>
                 </tr>
               </thead>

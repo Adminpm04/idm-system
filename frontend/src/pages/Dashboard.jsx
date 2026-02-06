@@ -78,9 +78,7 @@ export default function Dashboard() {
   // Format month names
   const formatMonth = (monthStr) => {
     const [year, month] = monthStr.split('-');
-    const months = language === 'ru'
-      ? ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
-      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = (t('monthsShort') || 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec').split(',');
     return months[parseInt(month) - 1] + ' ' + year.slice(2);
   };
 

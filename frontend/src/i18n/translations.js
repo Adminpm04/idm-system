@@ -35,9 +35,10 @@ export const translations = {
     verificationCode: 'Код подтверждения',
     codeExpired: 'Код истёк. Попробуйте снова.',
     invalidCode: 'Неверный код',
+    validationError: 'Ошибка валидации',
     verifying: 'Проверка...',
     verify: 'Подтвердить',
-    back: 'Назад',
+    backToLogin: 'Назад',
     signInWithDomain: 'Войдите с учётной записью домена',
 
     // Navigation
@@ -298,6 +299,23 @@ export const translations = {
     excelFull: 'Полные данные + статистика',
     exportsAllRequests: 'Экспортируются все заявки системы',
 
+    // User Access Report
+    usersWithAccess: 'Пользователи с доступом',
+    systemsWithAccess: 'Системы с доступом',
+    totalAccesses: 'Всего доступов',
+    temporaryAccesses: 'Временные доступы',
+    accessBySystem: 'Доступы по системам',
+    accessByDepartment: 'Доступы по отделам',
+    noData: 'Нет данных',
+    searchUser: 'Поиск пользователя',
+    searchByName: 'Поиск по имени, логину, email...',
+    allSystems: 'Все системы',
+    departmentFilter: 'Фильтр по отделу',
+    exporting: 'Экспорт...',
+    noUsersWithAccess: 'Пользователи с доступом не найдены',
+    temporary: 'Временный',
+    permanent: 'Постоянный',
+
     // Errors
     error: 'Ошибка',
     errorLoading: 'Ошибка загрузки',
@@ -305,9 +323,14 @@ export const translations = {
     errorUpdating: 'Ошибка обновления',
     errorDeleting: 'Ошибка удаления',
 
-    // Theme
+    // Theme & Appearance
     switchToLight: 'Переключить на светлую тему',
     switchToDark: 'Переключить на тёмную тему',
+    theme: 'Тема',
+    appearance: 'Внешний вид',
+    light: 'Светлая',
+    dark: 'Тёмная',
+    viewProfile: 'Просмотр профиля',
 
     // Language
     language: 'Язык',
@@ -447,7 +470,7 @@ export const translations = {
     linkManagers: 'Связать менеджеров',
     linkManagersDesc: 'Связать пользователей с их менеджерами из AD',
     managersLinked: 'Менеджеров связано',
-    created: 'Создано',
+    adCreated: 'Создано',
     updated: 'Обновлено',
     disabled: 'Заблокировано',
     manager: 'Руководитель',
@@ -551,6 +574,11 @@ export const translations = {
     newApprovalNotification: 'Новая заявка на согласование',
     newApprovalsNotification: 'новых заявок на согласование',
     clickToView: 'Нажмите, чтобы перейти к согласованию',
+    pushNotSupported: 'Ваш браузер не поддерживает push-уведомления',
+    pushEnabledBody: 'Вы будете получать уведомления даже при закрытом браузере',
+    notificationsDeniedAlert: 'Уведомления заблокированы.\n\nЧтобы включить:\n1. Нажмите на замок слева от адреса\n2. Найдите "Уведомления"\n3. Выберите "Разрешить"',
+    pushSetupError: 'Ошибка при настройке уведомлений',
+    accessReport: 'Отчёт по доступам',
 
     // Interactive Tour
     tourStepWelcome: 'Добро пожаловать в IDM System!',
@@ -583,6 +611,80 @@ export const translations = {
     tourFinish: 'Завершить',
     tourClickHere: 'Нажмите на выделенный элемент',
     tourRestartTour: 'Пройти урок заново',
+
+    // Error messages
+    errorLoadingPermissions: 'Ошибка загрузки прав',
+    errorLoadingRoles: 'Ошибка загрузки ролей',
+    errorDeletingRole: 'Ошибка удаления роли',
+    errorLoadingSystems: 'Ошибка загрузки систем',
+    errorLoadingUsers: 'Ошибка загрузки пользователей',
+    errorLoadingAccessRoles: 'Ошибка загрузки ролей доступа',
+    errorCreatingRequest: 'Ошибка создания заявки',
+    errorLoadingRequest: 'Ошибка загрузки заявки',
+    errorSubmittingRequest: 'Ошибка отправки заявки',
+    errorApproving: 'Ошибка согласования',
+    errorRejecting: 'Ошибка отклонения',
+    errorAddingComment: 'Ошибка добавления комментария',
+    errorUploadingFile: 'Ошибка загрузки файла',
+    errorDownloadingFile: 'Ошибка скачивания файла',
+    errorDeletingAttachment: 'Ошибка удаления вложения',
+
+    // Request actions
+    submitForApprovalConfirm: 'Отправить заявку на согласование?',
+    requestApprovedSuccess: 'Заявка успешно согласована!',
+    rejectionReasonRequired: 'Причина отклонения (обязательно):',
+    requestRejected: 'Заявка отклонена',
+
+    // File upload hints
+    fileFormatHint: 'PDF, DOC, XLS, PNG, JPG, TXT, ZIP (макс. 5 МБ)',
+    riskLevel: 'риск',
+
+    // Dashboard months
+    monthsShort: 'Янв,Фев,Мар,Апр,Май,Июн,Июл,Авг,Сен,Окт,Ноя,Дек',
+    systemUser: 'Система',
+
+    // Search
+
+    // Memory Game
+    memoryGame: 'Memory Game',
+    findAllPairs: 'Найди все пары карточек',
+    moves: 'Ходов',
+    time: 'Время',
+    bestScore: 'Рекорд',
+    victory: 'Победа!',
+    youFoundAllPairs: 'Вы нашли все пары!',
+    movesIn: 'ходов за',
+    newRecord: 'Новый рекорд!',
+    playAgain: 'Играть снова',
+    startOver: 'Начать заново',
+    cardLogo: 'Логотип',
+    cardShield: 'Щит',
+    cardStar: 'Звезда',
+    cardCoin: 'Монета',
+    cardMap: 'Карта',
+    cardLock: 'Замок',
+    cardClient: 'Клиент',
+    cardPremium: 'Премиум',
+
+    // Profile
+    profileUpdated: 'Профиль успешно обновлён',
+    profileUpdateError: 'Ошибка обновления профиля',
+    invalidFileType: 'Неверный тип файла. Разрешены: JPEG, PNG, GIF, WebP',
+    avatarUpdated: 'Фото профиля обновлено',
+    avatarUploadError: 'Ошибка загрузки фото',
+    avatarDeleted: 'Фото профиля удалено',
+    avatarDeleteError: 'Ошибка удаления фото',
+    deletePhoto: 'Удалить фото',
+    clickToChangePhoto: 'Нажмите на фото чтобы изменить',
+    departmentLabel: 'Отдел',
+    positionLabel: 'Должность',
+    editProfile: 'Редактировать',
+
+    // Notifications
+    notificationsLoading: 'Загрузка...',
+    notificationsBlocked: 'Уведомления заблокированы',
+    notificationsEnabled: 'Push-уведомления включены',
+    enableNotifications: 'Включить push-уведомления',
   },
 
   en: {
@@ -621,9 +723,10 @@ export const translations = {
     verificationCode: 'Verification Code',
     codeExpired: 'Code expired. Please try again.',
     invalidCode: 'Invalid code',
+    validationError: 'Validation error',
     verifying: 'Verifying...',
     verify: 'Verify',
-    back: 'Back to login',
+    backToLogin: 'Back to login',
     signInWithDomain: 'Sign in with your domain account',
 
     // Navigation
@@ -668,7 +771,6 @@ export const translations = {
     rejectedFilter: 'Rejected',
     system: 'System',
     role: 'Role',
-    forUser: 'For',
     requester: 'Requester',
     created: 'Created',
     submitted: 'Submitted',
@@ -761,7 +863,6 @@ export const translations = {
     editUser: 'Edit User',
     newUser: 'New User',
     email: 'Email',
-    fullName: 'Full Name',
     leaveEmptyPassword: 'Leave empty to keep current',
     userCreated: 'User created',
     userUpdated: 'User updated',
@@ -884,6 +985,23 @@ export const translations = {
     excelFull: 'Full data + statistics',
     exportsAllRequests: 'Exports all system requests',
 
+    // User Access Report
+    usersWithAccess: 'Users with Access',
+    systemsWithAccess: 'Systems with Access',
+    totalAccesses: 'Total Accesses',
+    temporaryAccesses: 'Temporary Accesses',
+    accessBySystem: 'Access by System',
+    accessByDepartment: 'Access by Department',
+    noData: 'No data',
+    searchUser: 'Search User',
+    searchByName: 'Search by name, login, email...',
+    allSystems: 'All Systems',
+    departmentFilter: 'Filter by department',
+    exporting: 'Exporting...',
+    noUsersWithAccess: 'No users with access found',
+    temporary: 'Temporary',
+    permanent: 'Permanent',
+
     // Errors
     error: 'Error',
     errorLoading: 'Error loading',
@@ -891,9 +1009,14 @@ export const translations = {
     errorUpdating: 'Error updating',
     errorDeleting: 'Error deleting',
 
-    // Theme
+    // Theme & Appearance
     switchToLight: 'Switch to light mode',
     switchToDark: 'Switch to dark mode',
+    theme: 'Theme',
+    appearance: 'Appearance',
+    light: 'Light',
+    dark: 'Dark',
+    viewProfile: 'View Profile',
 
     // Language
     language: 'Language',
@@ -1033,7 +1156,7 @@ export const translations = {
     linkManagers: 'Link Managers',
     linkManagersDesc: 'Link users with their managers from AD',
     managersLinked: 'Managers linked',
-    created: 'Created',
+    adCreated: 'Created',
     updated: 'Updated',
     disabled: 'Disabled',
     manager: 'Manager',
@@ -1137,6 +1260,11 @@ export const translations = {
     newApprovalNotification: 'New approval request',
     newApprovalsNotification: 'new approval requests',
     clickToView: 'Click to view approvals',
+    pushNotSupported: 'Your browser does not support push notifications',
+    pushEnabledBody: 'You will receive notifications even when the browser is closed',
+    notificationsDeniedAlert: 'Notifications are blocked.\n\nTo enable:\n1. Click the lock icon in the address bar\n2. Find "Notifications"\n3. Select "Allow"',
+    pushSetupError: 'Error setting up notifications',
+    accessReport: 'Access Report',
 
     // Interactive Tour
     tourStepWelcome: 'Welcome to IDM System!',
@@ -1169,6 +1297,82 @@ export const translations = {
     tourFinish: 'Finish',
     tourClickHere: 'Click the highlighted element',
     tourRestartTour: 'Restart tour',
+
+    // Error messages
+    errorLoadingPermissions: 'Error loading permissions',
+    errorLoadingRoles: 'Error loading roles',
+    errorDeletingRole: 'Error deleting role',
+    errorLoadingSystems: 'Error loading systems',
+    errorLoadingUsers: 'Error loading users',
+    errorLoadingAccessRoles: 'Error loading access roles',
+    errorCreatingRequest: 'Error creating request',
+    errorLoadingRequest: 'Error loading request',
+    errorSubmittingRequest: 'Error submitting request',
+    errorApproving: 'Error approving',
+    errorRejecting: 'Error rejecting',
+    errorAddingComment: 'Error adding comment',
+    errorUploadingFile: 'Error uploading file',
+    errorDownloadingFile: 'Error downloading file',
+    errorDeletingAttachment: 'Error deleting attachment',
+
+    // Request actions
+    submitForApprovalConfirm: 'Submit request for approval?',
+    requestApprovedSuccess: 'Request approved successfully!',
+    rejectionReasonRequired: 'Reason for rejection (required):',
+    requestRejected: 'Request rejected',
+
+    // File upload hints
+    fileFormatHint: 'PDF, DOC, XLS, PNG, JPG, TXT, ZIP (max 5 MB)',
+    riskLevel: 'risk',
+
+    // Dashboard months
+    monthsShort: 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec',
+    systemUser: 'System',
+
+    // Search
+    forUser: 'For',
+
+    // Memory Game
+    memoryGame: 'Memory Game',
+    findAllPairs: 'Find all matching pairs',
+    moves: 'Moves',
+    time: 'Time',
+    bestScore: 'Best',
+    victory: 'Victory!',
+    youFoundAllPairs: 'You found all pairs!',
+    movesIn: 'moves in',
+    newRecord: 'New record!',
+    playAgain: 'Play again',
+    startOver: 'Start over',
+    cardLogo: 'Logo',
+    cardShield: 'Shield',
+    cardStar: 'Star',
+    cardCoin: 'Coin',
+    cardMap: 'Map',
+    cardLock: 'Lock',
+    cardClient: 'Client',
+    cardPremium: 'Premium',
+
+    // Profile
+    profileUpdated: 'Profile updated successfully',
+    profileUpdateError: 'Error updating profile',
+    invalidFileType: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP',
+    avatarUpdated: 'Profile photo updated',
+    avatarUploadError: 'Error uploading photo',
+    avatarDeleted: 'Profile photo deleted',
+    avatarDeleteError: 'Error deleting photo',
+    deletePhoto: 'Delete photo',
+    clickToChangePhoto: 'Click on photo to change',
+    fullName: 'Full name',
+    departmentLabel: 'Department',
+    positionLabel: 'Position',
+    editProfile: 'Edit',
+
+    // Notifications
+    notificationsLoading: 'Loading...',
+    notificationsBlocked: 'Notifications blocked',
+    notificationsEnabled: 'Push notifications enabled',
+    enableNotifications: 'Enable push notifications',
   },
 
   tj: {
@@ -1207,8 +1411,10 @@ export const translations = {
     verificationCode: 'Рамзи тасдиқ',
     codeExpired: 'Рамз гузашт. Дубора кӯшиш кунед.',
     invalidCode: 'Рамзи нодуруст',
+    validationError: 'Хатогии тасдиқ',
     verifying: 'Тасдиқкунӣ...',
     verify: 'Тасдиқ кардан',
+    backToLogin: 'Бозгашт',
     signInWithDomain: 'Бо ҳисоби домен ворид шавед',
 
     // Navigation
@@ -1253,7 +1459,6 @@ export const translations = {
     rejectedFilter: 'Радшуда',
     system: 'Система',
     role: 'Нақш',
-    forUser: 'Барои',
     requester: 'Дархосткунанда',
     created: 'Сохташуда',
     submitted: 'Фиристода',
@@ -1346,7 +1551,6 @@ export const translations = {
     editUser: 'Таҳрири корбар',
     newUser: 'Корбари нав',
     email: 'Почтаи электронӣ',
-    fullName: 'Номи пурра',
     leaveEmptyPassword: 'Барои нигоҳ доштани ҷорӣ холӣ монед',
     userCreated: 'Корбар сохта шуд',
     userUpdated: 'Корбар навсозӣ шуд',
@@ -1469,6 +1673,23 @@ export const translations = {
     excelFull: 'Маълумоти пурра + омор',
     exportsAllRequests: 'Содир кардани ҳамаи дархостҳои система',
 
+    // User Access Report
+    usersWithAccess: 'Корбарон бо дастрасӣ',
+    systemsWithAccess: 'Системаҳо бо дастрасӣ',
+    totalAccesses: 'Ҳамагӣ дастрасиҳо',
+    temporaryAccesses: 'Дастрасиҳои муваққатӣ',
+    accessBySystem: 'Дастрасӣ аз рӯи система',
+    accessByDepartment: 'Дастрасӣ аз рӯи шуъба',
+    noData: 'Маълумот нест',
+    searchUser: 'Ҷустуҷӯи корбар',
+    searchByName: 'Ҷустуҷӯ аз рӯи ном, логин, email...',
+    allSystems: 'Ҳамаи системаҳо',
+    departmentFilter: 'Филтр аз рӯи шуъба',
+    exporting: 'Содирот...',
+    noUsersWithAccess: 'Корбарон бо дастрасӣ ёфт нашуданд',
+    temporary: 'Муваққатӣ',
+    permanent: 'Доимӣ',
+
     // Errors
     error: 'Хато',
     errorLoading: 'Хатои боркунӣ',
@@ -1476,9 +1697,14 @@ export const translations = {
     errorUpdating: 'Хатои навсозӣ',
     errorDeleting: 'Хатои нест кардан',
 
-    // Theme
+    // Theme & Appearance
     switchToLight: 'Гузариш ба мавзӯи равшан',
     switchToDark: 'Гузариш ба мавзӯи торик',
+    theme: 'Мавзӯъ',
+    appearance: 'Намуди зоҳирӣ',
+    light: 'Равшан',
+    dark: 'Торик',
+    viewProfile: 'Дидани профил',
 
     // Language
     language: 'Забон',
@@ -1618,7 +1844,7 @@ export const translations = {
     linkManagers: 'Пайваст кардани мудирон',
     linkManagersDesc: 'Пайваст кардани корбарон бо мудирони онҳо аз AD',
     managersLinked: 'Мудирон пайваст шуданд',
-    created: 'Сохташуда',
+    adCreated: 'Сохташуда',
     updated: 'Навсозишуда',
     disabled: 'Ғайрифаъол',
     manager: 'Мудир',
@@ -1722,6 +1948,11 @@ export const translations = {
     newApprovalNotification: 'Дархости нави тасдиқ',
     newApprovalsNotification: 'дархостҳои нави тасдиқ',
     clickToView: 'Барои дидани тасдиқҳо пахш кунед',
+    pushNotSupported: 'Браузери шумо push-огоҳиҳоро дастгирӣ намекунад',
+    pushEnabledBody: 'Шумо огоҳиҳо мегиред ҳатто вақте ки браузер пӯшида аст',
+    notificationsDeniedAlert: 'Огоҳиҳо баста шудаанд.\n\nБарои фаъол кардан:\n1. Тугмаи қулфро дар сатри суроға пахш кунед\n2. "Огоҳиҳо"-ро ёбед\n3. "Иҷозат додан"-ро интихоб кунед',
+    pushSetupError: 'Хатогӣ ҳангоми танзими огоҳиҳо',
+    accessReport: 'Ҳисоботи дастрасӣ',
 
     // Interactive Tour
     tourStepWelcome: 'Хуш омадед ба IDM System!',
@@ -1754,5 +1985,81 @@ export const translations = {
     tourFinish: 'Анҷом додан',
     tourClickHere: 'Унсури ҷудошударо пахш кунед',
     tourRestartTour: 'Дарсро аз нав гузаронидан',
+
+    // Error messages
+    errorLoadingPermissions: 'Хатогии боркунии ҳуқуқҳо',
+    errorLoadingRoles: 'Хатогии боркунии нақшҳо',
+    errorDeletingRole: 'Хатогии нест кардани нақш',
+    errorLoadingSystems: 'Хатогии боркунии системаҳо',
+    errorLoadingUsers: 'Хатогии боркунии корбарон',
+    errorLoadingAccessRoles: 'Хатогии боркунии нақшҳои дастрасӣ',
+    errorCreatingRequest: 'Хатогии сохтани дархост',
+    errorLoadingRequest: 'Хатогии боркунии дархост',
+    errorSubmittingRequest: 'Хатогии ирсоли дархост',
+    errorApproving: 'Хатогии тасдиқ',
+    errorRejecting: 'Хатогии рад кардан',
+    errorAddingComment: 'Хатогии илова кардани шарҳ',
+    errorUploadingFile: 'Хатогии боркунии файл',
+    errorDownloadingFile: 'Хатогии зеркашии файл',
+    errorDeletingAttachment: 'Хатогии нест кардани замима',
+
+    // Request actions
+    submitForApprovalConfirm: 'Дархостро барои тасдиқ ирсол кунед?',
+    requestApprovedSuccess: 'Дархост бомуваффақият тасдиқ шуд!',
+    rejectionReasonRequired: 'Сабаби рад кардан (ҳатмӣ):',
+    requestRejected: 'Дархост рад карда шуд',
+
+    // File upload hints
+    fileFormatHint: 'PDF, DOC, XLS, PNG, JPG, TXT, ZIP (макс. 5 МБ)',
+    riskLevel: 'хатар',
+
+    // Dashboard months
+    monthsShort: 'Янв,Фев,Мар,Апр,Май,Июн,Июл,Авг,Сен,Окт,Ноя,Дек',
+    systemUser: 'Система',
+
+    // Search
+
+    // Memory Game
+    memoryGame: 'Бозии хотира',
+    findAllPairs: 'Ҳамаи ҷуфтҳоро ёбед',
+    moves: 'Қадамҳо',
+    time: 'Вақт',
+    bestScore: 'Рекорд',
+    victory: 'Ғалаба!',
+    youFoundAllPairs: 'Шумо ҳамаи ҷуфтҳоро ёфтед!',
+    movesIn: 'қадам дар',
+    newRecord: 'Рекорди нав!',
+    playAgain: 'Бозӣ аз нав',
+    startOver: 'Аз нав оғоз кардан',
+    cardLogo: 'Логотип',
+    cardShield: 'Сипар',
+    cardStar: 'Ситора',
+    cardCoin: 'Танга',
+    cardMap: 'Харита',
+    cardLock: 'Қулф',
+    cardClient: 'Муштарӣ',
+    cardPremium: 'Премиум',
+
+    // Profile
+    profileUpdated: 'Профил бомуваффақият навсозӣ шуд',
+    profileUpdateError: 'Хатогии навсозии профил',
+    invalidFileType: 'Навъи файл нодуруст. Иҷозат: JPEG, PNG, GIF, WebP',
+    avatarUpdated: 'Сурати профил навсозӣ шуд',
+    avatarUploadError: 'Хатогии боркунии сурат',
+    avatarDeleted: 'Сурати профил нест карда шуд',
+    avatarDeleteError: 'Хатогии нест кардани сурат',
+    deletePhoto: 'Нест кардани сурат',
+    clickToChangePhoto: 'Барои иваз кардан суратро пахш кунед',
+    fullName: 'Номи пурра',
+    forUser: 'Барои',
+    departmentLabel: 'Шуъба',
+    positionLabel: 'Вазифа',
+    editProfile: 'Таҳрир кардан',
+
+    // Notifications
+    notificationsLoading: 'Боркунӣ...',
+    notificationsBlocked: 'Огоҳиҳо баста шудаанд',
+    notificationsEnabled: 'Push-огоҳиҳо фаол аст',
+    enableNotifications: 'Фаол кардани push-огоҳиҳо',
   }
 };

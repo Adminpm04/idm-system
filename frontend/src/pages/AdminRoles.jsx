@@ -26,7 +26,7 @@ export default function AdminRoles() {
       setRoles(res.data);
     } catch (error) {
       console.error('Error loading roles:', error);
-      alert('Error loading roles');
+      alert(t('errorLoadingRoles') || 'Error loading roles');
     } finally {
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export default function AdminRoles() {
       setRoleToDelete(null);
       loadRoles();
     } catch (error) {
-      setDeleteError(error.response?.data?.detail || 'Error deleting role');
+      setDeleteError(error.response?.data?.detail || t('errorDeletingRole') || 'Error deleting role');
     }
   };
 

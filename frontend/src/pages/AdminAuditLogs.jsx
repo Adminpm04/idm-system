@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../services/api';
 import { useLanguage } from '../App';
+import AdminUserAccessReport from './AdminUserAccessReport';
 
 export default function AdminAuditLogs() {
   const { t } = useLanguage();
+  const [activeSubTab, setActiveSubTab] = useState('audit');
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -170,8 +172,59 @@ export default function AdminAuditLogs() {
   const currentPage = Math.floor(filters.offset / filters.limit) + 1;
   const totalPages = Math.ceil(total / filters.limit);
 
+  const subTabs = [
+    { id: 'audit', name: t('auditLog') || 'Audit Log' },
+    { id: 'access-report', name: t('userAccessReport') || 'Access Report' },
+  ];
+
+  // If access report tab is active, render that component
+  if (activeSubTab === 'access-report') {
+    return (
+      <div className="space-y-6">
+        {/* Sub-tabs */}
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex space-x-6">
+            {subTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id)}
+                className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                  activeSubTab === tab.id
+                    ? 'border-primary text-primary dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+        <AdminUserAccessReport />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Sub-tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-6">
+          {subTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id)}
+              className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                activeSubTab === tab.id
+                  ? 'border-primary text-primary dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
@@ -386,7 +439,7 @@ export default function AdminAuditLogs() {
                             {(log.user?.full_name || 'S')[0].toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium dark:text-gray-100 truncate">{log.user?.full_name || 'System'}</p>
+                            <p className="text-sm font-medium dark:text-gray-100 truncate">{log.user?.full_name || t('systemUser') || 'System'}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{log.user?.email || '-'}</p>
                           </div>
                         </div>

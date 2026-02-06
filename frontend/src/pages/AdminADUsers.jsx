@@ -150,7 +150,7 @@ export default function AdminADUsers() {
         const data = await response.json();
         setMessage({
           type: 'success',
-          text: `${t('syncComplete')}: ${t('created')} ${data.created}, ${t('updated')} ${data.updated}, ${t('disabled')} ${data.disabled}, ${t('managersLinked')} ${data.managers_linked}`
+          text: `${t('syncComplete')}: ${t('adCreated')} ${data.created}, ${t('updated')} ${data.updated}, ${t('disabled')} ${data.disabled}, ${t('managersLinked')} ${data.managers_linked}`
         });
         searchUsers(searchQuery, pagination.page);
         fetchSyncStatus();

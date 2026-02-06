@@ -7,6 +7,7 @@ import AdminAuditLogs from './AdminAuditLogs';
 import AdminLDAP from './AdminLDAP';
 import AdminADUsers from './AdminADUsers';
 import AdminAccessRevocation from './AdminAccessRevocation';
+import AdminUserAccessReport from './AdminUserAccessReport';
 import Dashboard from './Dashboard';
 import ExportButton from '../components/ExportButton';
 import { useLanguage } from '../App';
@@ -25,6 +26,7 @@ export default function Admin() {
     { id: 'ldap', name: t('ldapConfig') },
     { id: 'adusers', name: t('adUsers') },
     { id: 'audit', name: t('auditLog') },
+    { id: 'access-report', name: t('accessReport') || 'Access Report' },
   ];
 
   return (
@@ -66,6 +68,7 @@ export default function Admin() {
         {activeTab === 'ldap' && <AdminLDAP />}
         {activeTab === 'adusers' && <AdminADUsers />}
         {activeTab === 'audit' && <AdminAuditLogs />}
+        {activeTab === 'access-report' && <AdminUserAccessReport />}
       </div>
     </div>
   );

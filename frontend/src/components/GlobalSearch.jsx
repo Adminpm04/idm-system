@@ -261,7 +261,7 @@ function GlobalSearch() {
                           )}
                         </div>
                         <div className="flex justify-between">
-                          <span>For: {request.target_user_name}</span>
+                          <span>{t('forUser') || 'For'}: {request.target_user_name}</span>
                           <span>{formatDate(request.created_at)}</span>
                         </div>
                       </div>

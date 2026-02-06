@@ -13,7 +13,7 @@ const CHECK_INTERVAL = 60000;
 // Notification sound (optional)
 const playNotificationSound = () => {
   try {
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH+JkI2JhoWFh4mMjYqGg4KDh42SkpKOiYWEhYmOkpKPi4aDg4WKj5KSkIuGg4OFio+Sk5CMh4SDhYqPkpKQjIeFhIaKj5KSkI2IhYWGio+RkpCNiIaFh4qPkZKQjYmGhYeKj5GSkI6JhoWHio+RkZCOiYaGiIqPkZGQjomHhoeKj5GRj46Jh4aHio+RkY+OiYeGh4qPkZCPjomHhoeKj5CQj46Jh4aHio+QkI+OiYeHh4qPkJCPjomHh4eKj5CQj46JiIeHio+QkI+OiYiHh4qPkJCPjomIh4iJj5CQj46JiIeIiY+QkI+OiYiHiImPkJCPjomIiIiJj5CQj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiImIiI+Pj46JiImIiI+Pj46JiImJiI+Pj46JiImJiI+Pj46JiImJiI+Pj46KiImJiI+Pj46KiImJiY+Pj46KiImJiY+Pj46KiImJiY+Pjo6KiImJiY+Pjo6KiImJiY+Pjo6KiImJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYqKiY6Ojo6KiYqKiY6Ojo6KioqKiY6Ojo6KioqKiY6Ojo6KioqKiY6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6Kioq');
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH+JkI2JhoWFh4mMjYqGg4KDh42SkpKOiYWEhYmOkpKPi4aDg4WKj5KSkIuGg4OFio+Sk5CMh4SDhYqPkpKQjIeFhIaKj5KSkI2IhYWGio+RkpCNiIaFh4qPkZKQjYmGhYeKj5GSkI6JhoWHio+RkZCOiYaGiIqPkZGQjomHhoeKj5GRj46Jh4aHio+RkY+OiYeGh4qPkZCPjomHhoeKj5CQj46Jh4aHio+QkI+OiYeHh4qPkJCPjomHh4eKj5CQj46JiIeHio+QkI+OiYiHh4qPkJCPjomIh4iJj5CQj46JiIeIiY+QkI+OiYiHiImPkJCPjomIiIiJj5CQj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiY+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiIiIiI+Pj46JiImIiI+Pj46JiImIiI+Pj46JiImJiI+Pj46JiImJiI+Pj46JiImJiI+Pj46KiImJiI+Pj46KiImJiY+Pj46KiImJiY+Pj46KiImJiY+Pjo6KiImJiY+Pjo6KiImJiY+Pjo6KiImJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY+Pjo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmJiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYmKiY6Ojo6KiYqKiY6Ojo6KiYqKiY6Ojo6KioqKiY6Ojo6KioqKiY6Ojo6KioqKiY6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Ojo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6KioqKio6Njo6Kioq');
     audio.volume = 0.3;
     audio.play().catch(() => {}); // Ignore errors
   } catch (e) {
@@ -29,9 +29,9 @@ export function useNotifications(enabled = true) {
     const saved = localStorage.getItem('notifications_enabled');
     return saved !== 'false'; // Default to true
   });
-  const [lastCheckCount, setLastCheckCount] = useState(null);
   const [newApprovalsCount, setNewApprovalsCount] = useState(0);
   const intervalRef = useRef(null);
+  const lastCheckCountRef = useRef(null);
 
   // Request permission
   const requestPermission = useCallback(async () => {
@@ -61,8 +61,8 @@ export function useNotifications(enabled = true) {
 
     try {
       const notification = new Notification(title, {
-        icon: '/vite.svg',
-        badge: '/vite.svg',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-192x192.png',
         tag: 'idm-approval',
         renotify: true,
         ...options
@@ -97,8 +97,8 @@ export function useNotifications(enabled = true) {
       const currentCount = response.data?.length || 0;
 
       // If this is not the first check and count increased
-      if (lastCheckCount !== null && currentCount > lastCheckCount) {
-        const newCount = currentCount - lastCheckCount;
+      if (lastCheckCountRef.current !== null && currentCount > lastCheckCountRef.current) {
+        const newCount = currentCount - lastCheckCountRef.current;
         setNewApprovalsCount(newCount);
 
         // Show notification
@@ -115,11 +115,11 @@ export function useNotifications(enabled = true) {
         );
       }
 
-      setLastCheckCount(currentCount);
+      lastCheckCountRef.current = currentCount;
     } catch (error) {
       console.error('Error checking for new approvals:', error);
     }
-  }, [enabled, notificationsEnabled, lastCheckCount, showNotification]);
+  }, [enabled, notificationsEnabled, showNotification]);
 
   // Toggle notifications
   const toggleNotifications = useCallback(async () => {

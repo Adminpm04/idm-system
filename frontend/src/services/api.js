@@ -108,6 +108,17 @@ export const usersAPI = {
   changePassword: (id, data) => api.post('/users/' + id + '/change-password', data),
   completeTour: () => api.post('/users/me/tour-complete'),
   resetTour: () => api.post('/users/me/tour-reset'),
+  // Profile endpoints
+  getProfile: () => api.get('/users/me/profile'),
+  updateProfile: (data) => api.put('/users/me/profile', data),
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/users/me/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deleteAvatar: () => api.delete('/users/me/avatar'),
 };
 
 export const systemsAPI = {
@@ -169,6 +180,9 @@ export const adminAPI = {
   },
   permissions: {
     list: () => api.get('/admin/permissions'),
+    create: (data) => api.post("/admin/permissions", data),
+    update: (id, data) => api.put(`/admin/permissions/${id}`, data),
+    delete: (id) => api.delete(`/admin/permissions/${id}`),
   },
   auditLogs: {
     list: (params) => api.get('/admin/audit-logs', { params }),
